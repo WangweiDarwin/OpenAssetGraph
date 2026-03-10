@@ -1,0 +1,146 @@
+"""Mock data service for demo without Neo4j"""
+from typing import Any
+
+MOCK_NODES = [
+    {"id": "db1", "label": "User Database", "type": "Database", "properties": {"engine": "PostgreSQL", "version": "14.0", "host": "db.example.com", "port": 5432}},
+    {"id": "db2", "label": "Order Database", "type": "Database", "properties": {"engine": "PostgreSQL", "version": "14.0", "host": "db.example.com", "port": 5433}},
+    {"id": "db3", "label": "Product Database", "type": "Database", "properties": {"engine": "MySQL", "version": "8.0", "host": "db2.example.com", "port": 3306}},
+    {"id": "svc1", "label": "User Service", "type": "Service", "properties": {"language": "Java", "port": 8081, "framework": "Spring Boot", "team": "Platform"}},
+    {"id": "svc2", "label": "Order Service", "type": "Service", "properties": {"language": "Java", "port": 8082, "framework": "Spring Boot", "team": "Commerce"}},
+    {"id": "svc3", "label": "Product Service", "type": "Service", "properties": {"language": "Python", "port": 8083, "framework": "FastAPI", "team": "Catalog"}},
+    {"id": "svc4", "label": "Payment Service", "type": "Service", "properties": {"language": "Go", "port": 8084, "framework": "Gin", "team": "Finance"}},
+    {"id": "api1", "label": "User API", "type": "API", "properties": {"framework": "Spring Boot", "version": "3.0", "endpoint": "/api/v1/users"}},
+    {"id": "api2", "label": "Order API", "type": "API", "properties": {"framework": "Spring Boot", "version": "3.0", "endpoint": "/api/v1/orders"}},
+    {"id": "api3", "label": "Product API", "type": "API", "properties": {"framework": "FastAPI", "version": "0.100", "endpoint": "/api/v1/products"}},
+    {"id": "api4", "label": "Payment API", "type": "API", "properties": {"framework": "Gin", "version": "1.9", "endpoint": "/api/v1/payments"}},
+    {"id": "fe1", "label": "Admin Dashboard", "type": "FrontendApp", "properties": {"framework": "React", "version": "18.0", "url": "https://admin.example.com"}},
+    {"id": "fe2", "label": "Customer Portal", "type": "FrontendApp", "properties": {"framework": "React", "version": "18.0", "url": "https://portal.example.com"}},
+    {"id": "fe3", "label": "Mobile App", "type": "FrontendApp", "properties": {"framework": "React Native", "version": "0.72", "platform": "iOS/Android"}},
+    {"id": "table_users", "label": "users", "type": "Table", "properties": {"schema": "public", "row_count": 1000000}},
+    {"id": "table_orders", "label": "orders", "type": "Table", "properties": {"schema": "public", "row_count": 5000000}},
+    {"id": "table_products", "label": "products", "type": "Table", "properties": {"schema": "catalog", "row_count": 50000}},
+    {"id": "table_payments", "label": "payments", "type": "Table", "properties": {"schema": "finance", "row_count": 2000000}},
+]
+
+MOCK_EDGES = [
+    {"source": "fe1", "target": "api1", "type": "REQUESTS", "properties": {"calls_per_day": 50000}},
+    {"source": "fe1", "target": "api2", "type": "REQUESTS", "properties": {"calls_per_day": 30000}},
+    {"source": "fe2", "target": "api2", "type": "REQUESTS", "properties": {"calls_per_day": 100000}},
+    {"source": "fe2", "target": "api3", "type": "REQUESTS", "properties": {"calls_per_day": 80000}},
+    {"source": "fe3", "target": "api3", "type": "REQUESTS", "properties": {"calls_per_day": 150000}},
+    {"source": "fe3", "target": "api4", "type": "REQUESTS", "properties": {"calls_per_day": 50000}},
+    {"source": "api1", "target": "svc1", "type": "EXPOSES", "properties": {}},
+    {"source": "api2", "target": "svc2", "type": "EXPOSES", "properties": {}},
+    {"source": "api3", "target": "svc3", "type": "EXPOSES", "properties": {}},
+    {"source": "api4", "target": "svc4", "type": "EXPOSES", "properties": {}},
+    {"source": "svc1", "target": "db1", "type": "CALLS", "properties": {"queries_per_sec": 500}},
+    {"source": "svc2", "target": "db2", "type": "CALLS", "properties": {"queries_per_sec": 1200}},
+    {"source": "svc3", "target": "db3", "type": "CALLS", "properties": {"queries_per_sec": 800}},
+    {"source": "svc4", "target": "db2", "type": "CALLS", "properties": {"queries_per_sec": 300}},
+    {"source": "svc1", "target": "svc2", "type": "CALLS", "properties": {"calls_per_sec": 50}},
+    {"source": "svc2", "target": "svc3", "type": "CALLS", "properties": {"calls_per_sec": 100}},
+    {"source": "svc2", "target": "svc4", "type": "CALLS", "properties": {"calls_per_sec": 80}},
+    {"source": "db1", "target": "table_users", "type": "CONTAINS", "properties": {}},
+    {"source": "db2", "target": "table_orders", "type": "CONTAINS", "properties": {}},
+    {"source": "db2", "target": "table_payments", "type": "CONTAINS", "properties": {}},
+    {"source": "db3", "target": "table_products", "type": "CONTAINS", "properties": {}},
+]
+
+
+class MockDataService:
+    """Service for mock/demo data"""
+    
+    def __init__(self):
+        self.nodes = {n["id"]: n for n in MOCK_NODES}
+        self.edges = MOCK_EDGES
+    
+    async def get_topology(
+        self,
+        node_types: list[str] | None = None,
+        limit: int = 100
+    ) -> dict[str, Any]:
+        nodes = list(self.nodes.values())
+        if node_types:
+            nodes = [n for n in nodes if n["type"] in node_types]
+        nodes = nodes[:limit]
+        node_ids = {n["id"] for n in nodes}
+        edges = [e for e in self.edges if e["source"] in node_ids and e["target"] in node_ids]
+        return {
+            "nodes": nodes,
+            "edges": edges,
+            "node_count": len(nodes),
+            "edge_count": len(edges)
+        }
+    
+    async def get_node(self, node_id: str) -> dict[str, Any] | None:
+        return self.nodes.get(node_id)
+    
+    async def search_nodes(
+        self,
+        query: str,
+        node_types: list[str] | None = None,
+        limit: int = 50
+    ) -> dict[str, Any]:
+        query_lower = query.lower()
+        results = []
+        for node in self.nodes.values():
+            if node_types and node["type"] not in node_types:
+                continue
+            if query_lower in node["label"].lower() or query_lower in node["id"].lower():
+                results.append(node)
+            elif node.get("properties"):
+                for v in node["properties"].values():
+                    if query_lower in str(v).lower():
+                        results.append(node)
+                        break
+        return {
+            "query": query,
+            "results": results[:limit],
+            "count": len(results)
+        }
+    
+    async def get_stats(self) -> dict[str, Any]:
+        type_counts = {}
+        for node in self.nodes.values():
+            t = node["type"]
+            type_counts[t] = type_counts.get(t, 0) + 1
+        return {
+            "total_nodes": len(self.nodes),
+            "total_edges": len(self.edges),
+            "node_types": type_counts
+        }
+    
+    async def get_node_relationships(self, node_id: str) -> list[dict[str, Any]]:
+        return [e for e in self.edges if e["source"] == node_id or e["target"] == node_id]
+    
+    async def find_path(
+        self,
+        start_id: str,
+        end_id: str,
+        max_depth: int = 5
+    ) -> list[dict[str, Any]]:
+        if start_id not in self.nodes or end_id not in self.nodes:
+            return []
+        
+        visited = set()
+        queue = [(start_id, [start_id])]
+        
+        while queue:
+            current, path = queue.pop(0)
+            if current == end_id:
+                return [{"id": n, **self.nodes[n]} for n in path]
+            if len(path) > max_depth:
+                continue
+            for edge in self.edges:
+                next_node = None
+                if edge["source"] == current and edge["target"] not in visited:
+                    next_node = edge["target"]
+                elif edge["target"] == current and edge["source"] not in visited:
+                    next_node = edge["source"]
+                if next_node:
+                    visited.add(next_node)
+                    queue.append((next_node, path + [next_node]))
+        return []
+
+
+mock_data_service = MockDataService()
