@@ -6,11 +6,12 @@ OpenAssetGraph is an intelligent platform that combines graph database technolog
 
 ## Features
 
-- **Topology Visualization** - Interactive graph visualization showing databases, services, APIs, and applications
+- **Topology Visualization** - Interactive graph visualization showing databases, services, APIs, and applications with light tech-style UI
 - **AI-Powered Analysis** - Ask questions about your architecture in natural language
-- **Project Scanner** - Import architecture from GitHub repositories or add nodes manually
+- **Project Scanner** - Import architecture from GitHub repositories with auto-recognition or add nodes manually
 - **Dependency Tracking** - Understand how components connect and identify risks
 - **Architecture Review** - AI-assisted evaluation of architectural proposals
+- **Collapsible Sidebar** - Clean navigation with expandable menu
 
 ## Tech Stack
 
@@ -51,9 +52,10 @@ Access: http://localhost:3000
 The application includes built-in demo data:
 
 - **Demo Project** - Sample enterprise architecture
-- **Mall E-Commerce** - Spring Boot microservices (40k+ stars on GitHub)
+- **Mall E-Commerce** - Spring Boot microservices (macrozheng/mall)
+- **Online Boutique** - Google Cloud microservices demo
 
-Switch between projects in the Topology page.
+Scan a GitHub repository URL or switch between projects in the Topology page.
 
 ## API Endpoints
 
