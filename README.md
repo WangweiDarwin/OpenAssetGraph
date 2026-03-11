@@ -2,32 +2,101 @@
 
 **AI-Native Digital Twin for Enterprise Software Architecture**
 
-OpenAssetGraph is an intelligent platform that combines graph database technology with AI to provide comprehensive visibility into enterprise software assets and their relationships. It helps organizations understand, analyze, and optimize their software architecture through interactive visualization and natural language queries.
+OpenAssetGraph is an intelligent platform that combines graph database technology with AI to provide comprehensive visibility into enterprise software assets and their relationships.
 
-## Key Features
+## Features
 
-- **Topology Visualization**: Interactive graph visualization showing databases, services, APIs, and applications with their dependencies
-- **AI-Powered Analysis**: Ask questions about your architecture in natural language and get intelligent insights
-- **Dependency Tracking**: Understand how components connect and identify potential risks
-- **Architecture Review**: AI-assisted evaluation of architectural proposals and changes
+- **Topology Visualization** - Interactive graph visualization showing databases, services, APIs, and applications
+- **AI-Powered Analysis** - Ask questions about your architecture in natural language
+- **Project Scanner** - Import architecture from GitHub repositories or add nodes manually
+- **Dependency Tracking** - Understand how components connect and identify risks
+- **Architecture Review** - AI-assisted evaluation of architectural proposals
 
 ## Tech Stack
 
-**Frontend**: React 18, TypeScript, Ant Design, @antv/g6
-**Backend**: Python, FastAPI, Neo4j, OpenAI API
+| Layer | Technologies |
+|-------|-------------|
+| Frontend | React 18, TypeScript, Ant Design, @antv/g6 |
+| Backend | Python 3.11+, FastAPI, Neo4j, OpenAI API |
+| Deploy | Docker, Docker Compose, GitHub Actions |
 
 ## Quick Start
 
+### Option 1: Local Development
+
 ```bash
 # Backend
-cd backend && pip install -r requirements.txt
+cd backend
+pip install -r requirements.txt
 python -m uvicorn app.main:app --port 8002
 
-# Frontend
-cd frontend && npm install && npm run dev
+# Frontend (new terminal)
+cd frontend
+npm install
+npm run dev
 ```
 
-Access the application at http://localhost:3000
+Access: http://localhost:3000
+
+### Option 2: Docker
+
+```bash
+docker-compose up -d
+```
+
+Access: http://localhost:3000
+
+## Demo Projects
+
+The application includes built-in demo data:
+
+- **Demo Project** - Sample enterprise architecture
+- **Mall E-Commerce** - Spring Boot microservices (40k+ stars on GitHub)
+
+Switch between projects in the Topology page.
+
+## API Endpoints
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/topology` | Get full topology |
+| `GET /api/topology/search?q=query` | Search nodes |
+| `POST /api/scan/github` | Scan GitHub repository |
+| `POST /api/chat` | AI chat |
+
+Full API docs: http://localhost:8002/docs
+
+## Configuration
+
+Create `.env` file in backend directory:
+
+```env
+NEO4J_URI=bolt://localhost:7687
+NEO4J_USER=neo4j
+NEO4J_PASSWORD=password
+OPENAI_API_KEY=your-api-key
+OPENAI_MODEL=gpt-4-turbo-preview
+```
+
+## Project Structure
+
+```
+OAG/
+├── backend/
+│   ├── app/
+│   │   ├── api/           # API routes
+│   │   ├── services/      # Business logic
+│   │   └── main.py
+│   └── requirements.txt
+├── frontend/
+│   ├── src/
+│   │   ├── components/    # React components
+│   │   ├── pages/         # Page components
+│   │   └── services/      # API services
+│   └── package.json
+├── docker-compose.yml
+└── README.md
+```
 
 ## Use Cases
 
@@ -37,6 +106,10 @@ Access the application at http://localhost:3000
 - Enable architecture knowledge sharing
 - Support architecture decision making with AI insights
 
-OpenAssetGraph bridges the gap between complex enterprise systems and human understanding, making architecture accessible to both technical and non-technical stakeholders.
+## Contributing
 
-**License**: Apache 2.0
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## License
+
+Apache License 2.0
