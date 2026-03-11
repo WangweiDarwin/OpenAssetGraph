@@ -21,6 +21,23 @@ def get_topology_service() -> TopologyService:
     return TopologyService(neo4j_service)
 
 
+@router.get("/projects")
+async def list_projects():
+    """List available projects"""
+    if USE_MOCK_DATA:
+        return await mock_data_service.list_projects()
+    return [{"id": "default", "name": "Production", "description": "Production Neo4j database"}]
+
+
+@router.post("/projects/{project_id}/switch")
+async def switch_project(project_id: str):
+    """Switch to a different project"""
+    if USE_MOCK_DATA:
+        mock_data_service.set_project(project_id)
+        return {"message": f"Switched to project: {project_id}", "project": project_id}
+    return {"message": "Project switching only available in mock mode"}
+
+
 @router.get("")
 async def get_topology(
     node_types: Optional[str] = Query(None, description="Comma-separated node types to filter"),
@@ -171,7 +188,7 @@ async def find_path(
 async def get_node_relationships(
     node_id: str,
     relationship_type: Optional[str] = Query(None, description="Filter by relationship type"),
-    direction: str = Query("both", regex="^(both|incoming|outgoing)$", description="Relationship direction")
+    direction: str = Query("both", pattern="^(both|incoming|outgoing)$", description="Relationship direction")
 ):
     """Get relationships for a specific node"""
     if USE_MOCK_DATA:

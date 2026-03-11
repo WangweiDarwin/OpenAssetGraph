@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Layout, Spin, message, Typography, Row, Col, Card, Statistic } from 'antd';
-import { NodeIndexOutlined, BranchesOutlined, DatabaseOutlined } from '@ant-design/icons';
+import { Layout, Spin, message, Typography, Row, Col, Card, Statistic, Select, Button, Space } from 'antd';
+import { NodeIndexOutlined, BranchesOutlined, DatabaseOutlined, ReloadOutlined } from '@ant-design/icons';
 import TopologyGraph from '../components/TopologyGraph';
 import NodeDetailPanel from '../components/NodeDetailPanel';
 import SearchPanel from '../components/SearchPanel';
@@ -8,6 +8,13 @@ import { topologyApi, TopologyNode, TopologyEdge, TopologyStats } from '../servi
 
 const { Content, Sider } = Layout;
 const { Title } = Typography;
+const { Option } = Select;
+
+interface Project {
+  id: string;
+  name: string;
+  description: string;
+}
 
 const TopologyPage: React.FC = () => {
   const [nodes, setNodes] = useState<TopologyNode[]>([]);
@@ -16,6 +23,18 @@ const TopologyPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<TopologyStats | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [currentProject, setCurrentProject] = useState<string>('default');
+
+  const loadProjects = useCallback(async () => {
+    try {
+      const response = await fetch('http://localhost:8002/api/topology/projects');
+      const data = await response.json();
+      setProjects(data);
+    } catch (error) {
+      console.error('Failed to load projects:', error);
+    }
+  }, []);
 
   const loadTopology = useCallback(async () => {
     setLoading(true);
@@ -41,9 +60,37 @@ const TopologyPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    loadProjects();
     loadTopology();
     loadStats();
-  }, [loadTopology, loadStats]);
+  }, [loadProjects, loadTopology, loadStats]);
+
+  const handleProjectChange = async (projectId: string) => {
+    setLoading(true);
+    try {
+      await fetch(`http://localhost:8002/api/topology/projects/${projectId}/switch`, {
+        method: 'POST',
+      });
+      setCurrentProject(projectId);
+      const data = await topologyApi.getTopology(undefined, 200);
+      setNodes(data.nodes);
+      setEdges(data.edges);
+      const statsData = await topologyApi.getStats();
+      setStats(statsData);
+      message.success(`Switched to project: ${projectId}`);
+    } catch (error) {
+      console.error('Failed to switch project:', error);
+      message.error('Failed to switch project');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    await loadTopology();
+    await loadStats();
+    message.success('Data refreshed');
+  };
 
   const handleNodeClick = (node: TopologyNode) => {
     setSelectedNode(node);
@@ -99,49 +146,54 @@ const TopologyPage: React.FC = () => {
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      {stats && (
-        <Row gutter={16} style={{ marginBottom: 16 }}>
-          <Col span={6}>
-            <Card size="small">
-              <Statistic
-                title="Total Nodes"
-                value={stats.total_nodes}
-                prefix={<NodeIndexOutlined />}
-              />
-            </Card>
-          </Col>
-          <Col span={6}>
-            <Card size="small">
-              <Statistic
-                title="Total Edges"
-                value={stats.total_edges}
-                prefix={<BranchesOutlined />}
-              />
-            </Card>
-          </Col>
-          <Col span={6}>
-            <Card size="small">
-              <Statistic
-                title="Node Types"
-                value={Object.keys(stats.node_types).length}
-                prefix={<DatabaseOutlined />}
-              />
-            </Card>
-          </Col>
-          <Col span={6}>
-            <Card size="small">
-              <Statistic
-                title="Largest Type"
-                value={
-                  stats.node_types
-                    ? Object.entries(stats.node_types).sort((a, b) => b[1] - a[1])[0]?.[0] || 'N/A'
-                    : 'N/A'
-                }
-              />
-            </Card>
-          </Col>
-        </Row>
-      )}
+      <Row gutter={16} style={{ marginBottom: 16 }}>
+        <Col span={6}>
+          <Card size="small">
+            <Statistic
+              title="Total Nodes"
+              value={stats?.total_nodes || 0}
+              prefix={<NodeIndexOutlined />}
+            />
+          </Card>
+        </Col>
+        <Col span={6}>
+          <Card size="small">
+            <Statistic
+              title="Total Edges"
+              value={stats?.total_edges || 0}
+              prefix={<BranchesOutlined />}
+            />
+          </Card>
+        </Col>
+        <Col span={6}>
+          <Card size="small">
+            <Statistic
+              title="Node Types"
+              value={stats?.node_types ? Object.keys(stats.node_types).length : 0}
+              prefix={<DatabaseOutlined />}
+            />
+          </Card>
+        </Col>
+        <Col span={6}>
+          <Card size="small">
+            <Space direction="vertical" style={{ width: '100%' }}>
+              <span style={{ fontSize: 12, color: '#666' }}>Project</span>
+              <Select
+                value={currentProject}
+                onChange={handleProjectChange}
+                style={{ width: '100%' }}
+              >
+                {projects.map(p => (
+                  <Option key={p.id} value={p.id}>{p.name}</Option>
+                ))}
+              </Select>
+              <Button icon={<ReloadOutlined />} onClick={handleRefresh} size="small">
+                Refresh
+              </Button>
+            </Space>
+          </Card>
+        </Col>
+      </Row>
 
       <Layout style={{ flex: 1, background: 'transparent' }}>
         <Sider width={300} theme="light" style={{ padding: 8, overflow: 'auto' }}>
