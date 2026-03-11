@@ -175,6 +175,10 @@ class LLMFactory:
         model = getattr(settings, 'llm_model', None) or getattr(settings, 'openai_model', 'gpt-4-turbo-preview')
         
         base_url = getattr(settings, 'llm_base_url', None)
+        if not base_url and model:
+            predefined_config = LLMModelConfig.get_model_config(provider, model)
+            if predefined_config:
+                base_url = predefined_config.get("base_url")
         
         temperature = getattr(settings, 'llm_temperature', 0.7)
         max_tokens = getattr(settings, 'llm_max_tokens', 4096)

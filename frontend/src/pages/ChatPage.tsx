@@ -47,7 +47,7 @@ const ChatPage: React.FC = () => {
         content: msg.content,
       }));
 
-      const response = await fetch('http://localhost:8002/api/chat', {
+      const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -56,7 +56,25 @@ const ChatPage: React.FC = () => {
         }),
       });
 
-      if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
+      if (!response.ok) {
+        let errorDetail = `HTTP error: ${response.status}`;
+        try {
+          const errorData = await response.json();
+          if (errorData.detail) {
+            if (typeof errorData.detail === 'object') {
+              errorDetail = `${errorData.detail.type}: ${errorData.detail.message}`;
+              if (errorData.detail.suggestion) {
+                errorDetail += `\n\n💡 建议: ${errorData.detail.suggestion}`;
+              }
+            } else {
+              errorDetail = errorData.detail;
+            }
+          }
+        } catch {
+          errorDetail = await response.text();
+        }
+        throw new Error(errorDetail);
+      }
 
       const data = await response.json();
 
@@ -73,7 +91,7 @@ const ChatPage: React.FC = () => {
       const errorMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: `Error: ${error instanceof Error ? error.message : 'Failed to send message'}`,
+        content: `❌ 错误: ${error instanceof Error ? error.message : '发送消息失败'}\n\n请检查:\n1. 后端服务是否正常运行\n2. API Key 是否正确配置\n3. 访问 /api/chat/test 测试 LLM 服务`,
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, errorMessage]);

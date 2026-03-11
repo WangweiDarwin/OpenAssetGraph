@@ -22,13 +22,14 @@ const ScanPage: React.FC = () => {
   const [scannedProjectId, setScannedProjectId] = useState<string | null>(null);
   const [form] = Form.useForm();
   const [manualForm] = Form.useForm();
+  const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8005';
 
   const handleGitHubScan = async (values: any) => {
     setLoading(true);
     setScanResult(null);
     setScannedProjectId(null);
     try {
-      const response = await fetch('http://localhost:8002/api/scan/github', {
+      const response = await fetch(`${API_BASE}/api/scan/github`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(values),
@@ -59,7 +60,7 @@ const ScanPage: React.FC = () => {
       const nodes = JSON.parse(values.nodes || '[]');
       const edges = values.edges ? JSON.parse(values.edges) : null;
       
-      const response = await fetch('http://localhost:8002/api/scan/manual', {
+      const response = await fetch(`${API_BASE}/api/scan/manual`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ nodes, edges }),
@@ -76,7 +77,7 @@ const ScanPage: React.FC = () => {
 
   const handleClear = async () => {
     try {
-      await fetch('http://localhost:8002/api/scan/clear', { method: 'POST' });
+      await fetch(`${API_BASE}/api/scan/clear`, { method: 'POST' });
       message.success('Topology cleared');
       setScanResult(null);
       setScannedProjectId(null);

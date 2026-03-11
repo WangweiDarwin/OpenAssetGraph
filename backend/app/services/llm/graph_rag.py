@@ -50,7 +50,13 @@ class GraphRAGService:
             
             keywords = self._extract_keywords(query)
             
-            nodes = await self._search_nodes_by_keywords(keywords, max_nodes)
+            nodes = []
+            if keywords:
+                nodes = await self._search_nodes_by_keywords(keywords, max_nodes)
+            
+            if len(nodes) < 5:
+                nodes = await self._get_all_nodes(max_nodes)
+            
             context.nodes = nodes
             
             if nodes:
@@ -64,6 +70,16 @@ class GraphRAGService:
             await self.neo4j_service.close()
         
         return context
+    
+    async def _get_all_nodes(self, limit: int = 200) -> list[dict[str, Any]]:
+        """Get all nodes from the graph"""
+        query = """
+        MATCH (n)
+        RETURN n.id as id, n.label as label, n.type as type, n.properties as properties
+        LIMIT $limit
+        """
+        result = await self.neo4j_service.execute_query(query, {"limit": limit})
+        return [dict(record) for record in result]
     
     def _extract_keywords(self, query: str) -> list[str]:
         """Extract keywords from query for graph search"""
@@ -81,11 +97,15 @@ class GraphRAGService:
                       "until", "while", "about", "against", "between", "into",
                       "through", "during", "before", "after", "above", "below",
                       "show", "list", "find", "get", "give", "tell", "what", "which",
-                      "who", "whom", "this", "that", "these", "those"}
+                      "who", "whom", "this", "that", "these", "those", "请", "你",
+                      "我", "的", "是", "在", "有", "和", "了", "不", "这", "那",
+                      "就", "也", "都", "会", "说", "对", "要", "能", "着", "把",
+                      "总结", "分析", "介绍", "描述", "说明", "解释", "总体", "架构",
+                      "项目", "系统", "应用", "服务", "数据库", "组件", "模块"}
         
-        words = query.lower().split()
-        keywords = [w.strip(".,!?;:\"'()[]{}") for w in words]
-        keywords = [w for w in keywords if w and w not in stop_words and len(w) > 2]
+        import re
+        words = re.findall(r'[\u4e00-\u9fff]+|[a-zA-Z]+', query.lower())
+        keywords = [w for w in words if w and w not in stop_words and len(w) > 1]
         
         return list(set(keywords))
     
@@ -154,15 +174,35 @@ class GraphRAGService:
             return "No relevant nodes found in the graph."
         
         type_counts: dict[str, int] = {}
+        type_examples: dict[str, list[str]] = {}
+        
         for node in context.nodes:
             node_type = node.get("type", "Unknown")
             type_counts[node_type] = type_counts.get(node_type, 0) + 1
+            
+            if node_type not in type_examples:
+                type_examples[node_type] = []
+            if len(type_examples[node_type]) < 5:
+                label = node.get("label", node.get("id", "unknown"))
+                type_examples[node_type].append(label)
         
-        summary_parts = [f"Found {len(context.nodes)} nodes:"]
-        for node_type, count in sorted(type_counts.items()):
-            summary_parts.append(f"  - {node_type}: {count}")
+        summary_parts = [f"拓扑数据摘要：共 {len(context.nodes)} 个节点，{len(context.relationships)} 条关系\n"]
         
-        summary_parts.append(f"\nRelationships: {len(context.relationships)}")
+        summary_parts.append("节点类型分布：")
+        for node_type, count in sorted(type_counts.items(), key=lambda x: -x[1]):
+            examples = type_examples.get(node_type, [])[:3]
+            examples_str = ", ".join(examples) if examples else ""
+            summary_parts.append(f"  - {node_type}: {count} 个 ({examples_str})")
+        
+        if context.relationships:
+            rel_types: dict[str, int] = {}
+            for rel in context.relationships:
+                rel_type = rel.get("type", "UNKNOWN")
+                rel_types[rel_type] = rel_types.get(rel_type, 0) + 1
+            
+            summary_parts.append("\n关系类型分布：")
+            for rel_type, count in sorted(rel_types.items(), key=lambda x: -x[1]):
+                summary_parts.append(f"  - {rel_type}: {count} 条")
         
         return "\n".join(summary_parts)
     
@@ -365,9 +405,3 @@ class GraphRAGService:
             "nodes": [dict(n) for n in nodes],
             "edges": [dict(e) for e in edges]
         }
-    
-    async def _get_all_nodes(self) -> list[dict[str, Any]]:
-        """Get all nodes from Neo4j"""
-        query = "MATCH (n) RETURN n.id as id, n.label as label, n.type as type, n.properties as properties LIMIT 200"
-        result = await self.neo4j_service.execute_query(query, {})
-        return [dict(n) for n in result]

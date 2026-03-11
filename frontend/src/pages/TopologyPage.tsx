@@ -29,9 +29,11 @@ const TopologyPage: React.FC = () => {
   const [currentProject, setCurrentProject] = useState<string>(projectFromUrl || 'default');
   const [drawerVisible, setDrawerVisible] = useState(false);
 
-  const loadProjects = useCallback(async () => {
+  const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8005';
+      
+const loadProjects = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:8002/api/topology/projects');
+      const response = await fetch(`${API_BASE}/api/topology/projects`);
       const data = await response.json();
       setProjects(data);
     } catch (error) {
@@ -44,7 +46,7 @@ const TopologyPage: React.FC = () => {
     try {
       const projectToLoad = projectId || currentProject;
       if (projectToLoad && projectToLoad !== 'default') {
-        await fetch(`http://localhost:8002/api/topology/projects/${projectToLoad}/switch`, {
+        await fetch(`${API_BASE}/api/topology/projects/${projectToLoad}/switch`, {
           method: 'POST',
         });
       }
@@ -86,7 +88,7 @@ const TopologyPage: React.FC = () => {
   const handleProjectChange = async (projectId: string) => {
     setLoading(true);
     try {
-      await fetch(`http://localhost:8002/api/topology/projects/${projectId}/switch`, {
+      await fetch(`${API_BASE}/api/topology/projects/${projectId}/switch`, {
         method: 'POST',
       });
       setCurrentProject(projectId);

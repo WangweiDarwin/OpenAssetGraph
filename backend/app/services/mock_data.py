@@ -1,5 +1,11 @@
 """Mock data service for demo without Neo4j"""
-from typing import Any
+import logging
+from typing import Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .graph_service import Neo4jService
+
+logger = logging.getLogger(__name__)
 
 MOCK_NODES = [
     {"id": "db1", "label": "User Database", "type": "Database", "properties": {"engine": "PostgreSQL", "version": "14.0", "host": "db.example.com", "port": 5432}},
@@ -263,6 +269,133 @@ class MockDataService:
     async def clear_project(self) -> None:
         self.nodes.clear()
         self.edges.clear()
+    
+    async def migrate_to_neo4j(self, neo4j_service: "Neo4jService") -> dict[str, Any]:
+        from ..models.graph import GraphNode, GraphRelationship, NodeType, RelationshipType
+        
+        logger.info(f"Starting migration of project '{self.project}' to Neo4j...")
+        
+        nodes_to_create = []
+        for node_data in self.nodes.values():
+            try:
+                node_type = NodeType(node_data["type"])
+            except ValueError:
+                node_type = NodeType.COMPONENT
+            
+            properties = dict(node_data.get("properties", {}))
+            properties["project"] = self.project
+            
+            graph_node = GraphNode(
+                id=node_data["id"],
+                label=node_data["label"],
+                type=node_type,
+                properties=properties
+            )
+            nodes_to_create.append(graph_node)
+        
+        logger.info(f"Migrating {len(nodes_to_create)} nodes...")
+        nodes_created = await neo4j_service.batch_create_nodes(nodes_to_create)
+        logger.info(f"Created {nodes_created} nodes")
+        
+        relationships_to_create = []
+        for edge in self.edges:
+            try:
+                rel_type = RelationshipType(edge["type"])
+            except ValueError:
+                rel_type = RelationshipType.CALLS
+            
+            properties = dict(edge.get("properties", {}))
+            properties["project"] = self.project
+            
+            graph_rel = GraphRelationship(
+                source_id=edge["source"],
+                target_id=edge["target"],
+                type=rel_type,
+                properties=properties
+            )
+            relationships_to_create.append(graph_rel)
+        
+        logger.info(f"Migrating {len(relationships_to_create)} relationships...")
+        rels_created = await neo4j_service.batch_create_relationships(relationships_to_create)
+        logger.info(f"Created {rels_created} relationships")
+        
+        result = {
+            "project": self.project,
+            "nodes_created": nodes_created,
+            "relationships_created": rels_created,
+            "success": True
+        }
+        logger.info(f"Migration completed for project '{self.project}': {result}")
+        return result
+    
+    async def migrate_all_projects_to_neo4j(self, neo4j_service: "Neo4jService") -> dict[str, Any]:
+        from ..models.graph import GraphNode, GraphRelationship, NodeType, RelationshipType
+        
+        projects = ["default", "mall", "online-boutique"]
+        results = {
+            "projects": {},
+            "total_nodes": 0,
+            "total_relationships": 0,
+            "success": True
+        }
+        
+        logger.info(f"Starting migration of all projects to Neo4j...")
+        
+        for project_name in projects:
+            logger.info(f"Migrating project: {project_name}")
+            template = PROJECT_TEMPLATES.get(project_name, PROJECT_TEMPLATES["default"])
+            
+            nodes_to_create = []
+            for node_data in template["nodes"]:
+                try:
+                    node_type = NodeType(node_data["type"])
+                except ValueError:
+                    node_type = NodeType.COMPONENT
+                
+                properties = dict(node_data.get("properties", {}))
+                properties["project"] = project_name
+                
+                graph_node = GraphNode(
+                    id=node_data["id"],
+                    label=node_data["label"],
+                    type=node_type,
+                    properties=properties
+                )
+                nodes_to_create.append(graph_node)
+            
+            nodes_created = await neo4j_service.batch_create_nodes(nodes_to_create)
+            logger.info(f"Project '{project_name}': Created {nodes_created} nodes")
+            
+            relationships_to_create = []
+            for edge in template["edges"]:
+                try:
+                    rel_type = RelationshipType(edge["type"])
+                except ValueError:
+                    rel_type = RelationshipType.CALLS
+                
+                properties = dict(edge.get("properties", {}))
+                properties["project"] = project_name
+                
+                graph_rel = GraphRelationship(
+                    source_id=edge["source"],
+                    target_id=edge["target"],
+                    type=rel_type,
+                    properties=properties
+                )
+                relationships_to_create.append(graph_rel)
+            
+            rels_created = await neo4j_service.batch_create_relationships(relationships_to_create)
+            logger.info(f"Project '{project_name}': Created {rels_created} relationships")
+            
+            results["projects"][project_name] = {
+                "nodes_created": nodes_created,
+                "relationships_created": rels_created
+            }
+            results["total_nodes"] += nodes_created
+            results["total_relationships"] += rels_created
+        
+        logger.info(f"All projects migration completed: {results}")
+        return results
 
 
 mock_data_service = MockDataService()

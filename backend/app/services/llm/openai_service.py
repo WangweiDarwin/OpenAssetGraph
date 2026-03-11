@@ -1,6 +1,8 @@
 """OpenAI LLM service implementation"""
 import json
+import logging
 from typing import Any, AsyncIterator, Optional
+import httpx
 
 from .base import (
     LLMConfig,
@@ -8,6 +10,8 @@ from .base import (
     LLMService,
     Message,
 )
+
+logger = logging.getLogger(__name__)
 
 try:
     from openai import AsyncOpenAI
@@ -26,12 +30,15 @@ class OpenAIService(LLMService):
         if not HAS_OPENAI:
             raise ImportError("openai package is required. Install with: pip install openai")
         
-        client_kwargs: dict[str, Any] = {}
+        client_kwargs: dict[str, Any] = {
+            "timeout": httpx.Timeout(120.0, connect=30.0)
+        }
         if config.api_key:
             client_kwargs["api_key"] = config.api_key
         if config.base_url:
             client_kwargs["base_url"] = config.base_url
         
+        logger.info(f"Initializing OpenAI client with base_url: {config.base_url}, model: {config.model}")
         self.client = AsyncOpenAI(**client_kwargs)
     
     async def chat(
@@ -46,32 +53,43 @@ class OpenAIService(LLMService):
         temperature = kwargs.get("temperature", self.config.temperature)
         max_tokens = kwargs.get("max_tokens", self.config.max_tokens)
         
-        response = await self.client.chat.completions.create(
-            model=model,
-            messages=formatted_messages,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            top_p=kwargs.get("top_p", self.config.top_p),
-            frequency_penalty=kwargs.get("frequency_penalty", self.config.frequency_penalty),
-            presence_penalty=kwargs.get("presence_penalty", self.config.presence_penalty),
-        )
+        logger.info(f"Calling OpenAI API: model={model}, temperature={temperature}, max_tokens={max_tokens}")
+        logger.debug(f"Messages: {json.dumps(formatted_messages[:2], ensure_ascii=False)}...")
         
-        choice = response.choices[0]
-        
-        return LLMResponse(
-            content=choice.message.content or "",
-            model=response.model,
-            usage={
-                "prompt_tokens": response.usage.prompt_tokens if response.usage else 0,
-                "completion_tokens": response.usage.completion_tokens if response.usage else 0,
-                "total_tokens": response.usage.total_tokens if response.usage else 0,
-            },
-            finish_reason=choice.finish_reason,
-            metadata={
-                "id": response.id,
-                "created": response.created,
-            }
-        )
+        try:
+            response = await self.client.chat.completions.create(
+                model=model,
+                messages=formatted_messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                top_p=kwargs.get("top_p", self.config.top_p),
+                frequency_penalty=kwargs.get("frequency_penalty", self.config.frequency_penalty),
+                presence_penalty=kwargs.get("presence_penalty", self.config.presence_penalty),
+            )
+            
+            choice = response.choices[0]
+            content = choice.message.content or ""
+            
+            logger.info(f"OpenAI response: model={response.model}, tokens={response.usage.total_tokens if response.usage else 0}")
+            logger.debug(f"Response content: {content[:200]}...")
+            
+            return LLMResponse(
+                content=content,
+                model=response.model,
+                usage={
+                    "prompt_tokens": response.usage.prompt_tokens if response.usage else 0,
+                    "completion_tokens": response.usage.completion_tokens if response.usage else 0,
+                    "total_tokens": response.usage.total_tokens if response.usage else 0,
+                },
+                finish_reason=choice.finish_reason,
+                metadata={
+                    "id": response.id,
+                    "created": response.created,
+                }
+            )
+        except Exception as e:
+            logger.error(f"OpenAI API error: {type(e).__name__}: {e}")
+            raise
     
     async def chat_stream(
         self,

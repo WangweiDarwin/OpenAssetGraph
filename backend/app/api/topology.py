@@ -1,4 +1,5 @@
 """Topology API routes"""
+import logging
 from fastapi import APIRouter, HTTPException, Query
 from typing import Optional
 from ..services.topology_service import TopologyService
@@ -7,9 +8,10 @@ from ..services.mock_data import mock_data_service
 from ..core.config import settings
 
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/topology", tags=["topology"])
 
-USE_MOCK_DATA = True
+USE_MOCK_DATA = False
 
 def get_topology_service() -> TopologyService:
     """Get topology service instance"""
@@ -26,7 +28,16 @@ async def list_projects():
     """List available projects"""
     if USE_MOCK_DATA:
         return await mock_data_service.list_projects()
-    return [{"id": "default", "name": "Production", "description": "Production Neo4j database"}]
+    
+    service = get_topology_service()
+    try:
+        await service.neo4j_service.connect()
+        return [{"id": "default", "name": "Production", "description": "Production Neo4j database"}]
+    except Exception as e:
+        logger.error(f"Failed to connect to Neo4j: {str(e)}")
+        raise HTTPException(status_code=503, detail=f"Neo4j service unavailable: {str(e)}")
+    finally:
+        await service.neo4j_service.close()
 
 
 @router.post("/projects/{project_id}/switch")
@@ -35,7 +46,16 @@ async def switch_project(project_id: str):
     if USE_MOCK_DATA:
         mock_data_service.set_project(project_id)
         return {"message": f"Switched to project: {project_id}", "project": project_id}
-    return {"message": "Project switching only available in mock mode"}
+    
+    service = get_topology_service()
+    try:
+        await service.neo4j_service.connect()
+        return {"message": f"Project switching not supported in Neo4j mode", "project": "default"}
+    except Exception as e:
+        logger.error(f"Failed to connect to Neo4j: {str(e)}")
+        raise HTTPException(status_code=503, detail=f"Neo4j service unavailable: {str(e)}")
+    finally:
+        await service.neo4j_service.close()
 
 
 @router.get("")
@@ -64,7 +84,8 @@ async def get_topology(
         return topology
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Failed to get topology from Neo4j: {str(e)}")
+        raise HTTPException(status_code=503, detail=f"Neo4j service unavailable: {str(e)}")
     finally:
         await service.neo4j_service.close()
 
@@ -100,7 +121,8 @@ async def search_nodes(
         }
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Failed to search nodes in Neo4j: {str(e)}")
+        raise HTTPException(status_code=503, detail=f"Neo4j service unavailable: {str(e)}")
     finally:
         await service.neo4j_service.close()
 
@@ -129,7 +151,8 @@ async def get_node(node_id: str):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Failed to get node from Neo4j: {str(e)}")
+        raise HTTPException(status_code=503, detail=f"Neo4j service unavailable: {str(e)}")
     finally:
         await service.neo4j_service.close()
 
@@ -179,7 +202,8 @@ async def find_path(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Failed to find path in Neo4j: {str(e)}")
+        raise HTTPException(status_code=503, detail=f"Neo4j service unavailable: {str(e)}")
     finally:
         await service.neo4j_service.close()
 
@@ -217,7 +241,8 @@ async def get_node_relationships(
         }
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Failed to get node relationships from Neo4j: {str(e)}")
+        raise HTTPException(status_code=503, detail=f"Neo4j service unavailable: {str(e)}")
     finally:
         await service.neo4j_service.close()
 
@@ -247,6 +272,7 @@ async def get_topology_stats():
         }
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Failed to get topology stats from Neo4j: {str(e)}")
+        raise HTTPException(status_code=503, detail=f"Neo4j service unavailable: {str(e)}")
     finally:
         await service.neo4j_service.close()
