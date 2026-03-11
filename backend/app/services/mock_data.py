@@ -67,9 +67,7 @@ MALL_NODES = [
     {"id": "pms_brand", "label": "pms_brand", "type": "Table", "properties": {"schema": "mall", "description": "Brand table"}},
     {"id": "pms_category", "label": "pms_category", "type": "Table", "properties": {"schema": "mall", "description": "Category table"}},
     {"id": "oms_order", "label": "oms_order", "type": "Table", "properties": {"schema": "mall", "description": "Order table"}},
-    {"id": "oms_order_item", "label": "oms_order_item", "type": "Table", "properties": {"schema": "mall", "description": "Order item table"}},
     {"id": "ums_member", "label": "ums_member", "type": "Table", "properties": {"schema": "mall", "description": "Member table"}},
-    {"id": "sms_coupon", "label": "sms_coupon", "type": "Table", "properties": {"schema": "mall", "description": "Coupon table"}},
 ]
 
 MALL_EDGES = [
@@ -94,14 +92,49 @@ MALL_EDGES = [
     {"source": "mall-mysql", "target": "pms_brand", "type": "CONTAINS", "properties": {}},
     {"source": "mall-mysql", "target": "pms_category", "type": "CONTAINS", "properties": {}},
     {"source": "mall-mysql", "target": "oms_order", "type": "CONTAINS", "properties": {}},
-    {"source": "mall-mysql", "target": "oms_order_item", "type": "CONTAINS", "properties": {}},
     {"source": "mall-mysql", "target": "ums_member", "type": "CONTAINS", "properties": {}},
-    {"source": "mall-mysql", "target": "sms_coupon", "type": "CONTAINS", "properties": {}},
+]
+
+ONLINE_BOUTIQUE_NODES = [
+    {"id": "frontend", "label": "frontend", "type": "Service", "properties": {"language": "Go", "port": 8080, "description": "Web frontend"}},
+    {"id": "cartservice", "label": "cartservice", "type": "Service", "properties": {"language": "C#", "port": 7070, "description": "Shopping cart service"}},
+    {"id": "productcatalogservice", "label": "productcatalogservice", "type": "Service", "properties": {"language": "Go", "port": 3550, "description": "Product catalog"}},
+    {"id": "currencyservice", "label": "currencyservice", "type": "Service", "properties": {"language": "Node.js", "port": 7000, "description": "Currency conversion"}},
+    {"id": "paymentservice", "label": "paymentservice", "type": "Service", "properties": {"language": "Node.js", "port": 50051, "description": "Payment processing"}},
+    {"id": "shippingservice", "label": "shippingservice", "type": "Service", "properties": {"language": "Go", "port": 50051, "description": "Shipping quotes"}},
+    {"id": "emailservice", "label": "emailservice", "type": "Service", "properties": {"language": "Python", "port": 8080, "description": "Email notifications"}},
+    {"id": "checkoutservice", "label": "checkoutservice", "type": "Service", "properties": {"language": "Go", "port": 5050, "description": "Checkout orchestration"}},
+    {"id": "recommendationservice", "label": "recommendationservice", "type": "Service", "properties": {"language": "Python", "port": 8080, "description": "Product recommendations"}},
+    {"id": "adservice", "label": "adservice", "type": "Service", "properties": {"language": "Java", "port": 9555, "description": "Ad targeting"}},
+    {"id": "loadgenerator", "label": "loadgenerator", "type": "Service", "properties": {"language": "Python", "port": 8089, "description": "Load testing"}},
+    {"id": "redis-cart", "label": "Redis Cache", "type": "Database", "properties": {"engine": "Redis", "port": 6379, "description": "Cart data store"}},
+    {"id": "web-app", "label": "Online Boutique", "type": "FrontendApp", "properties": {"framework": "Go Templates", "url": "https://onlineboutique.dev"}},
+]
+
+ONLINE_BOUTIQUE_EDGES = [
+    {"source": "web-app", "target": "frontend", "type": "REQUESTS", "properties": {}},
+    {"source": "frontend", "target": "productcatalogservice", "type": "CALLS", "properties": {}},
+    {"source": "frontend", "target": "currencyservice", "type": "CALLS", "properties": {}},
+    {"source": "frontend", "target": "cartservice", "type": "CALLS", "properties": {}},
+    {"source": "frontend", "target": "recommendationservice", "type": "CALLS", "properties": {}},
+    {"source": "frontend", "target": "shippingservice", "type": "CALLS", "properties": {}},
+    {"source": "frontend", "target": "checkoutservice", "type": "CALLS", "properties": {}},
+    {"source": "cartservice", "target": "redis-cart", "type": "CALLS", "properties": {}},
+    {"source": "checkoutservice", "target": "productcatalogservice", "type": "CALLS", "properties": {}},
+    {"source": "checkoutservice", "target": "cartservice", "type": "CALLS", "properties": {}},
+    {"source": "checkoutservice", "target": "paymentservice", "type": "CALLS", "properties": {}},
+    {"source": "checkoutservice", "target": "emailservice", "type": "CALLS", "properties": {}},
+    {"source": "checkoutservice", "target": "shippingservice", "type": "CALLS", "properties": {}},
+    {"source": "checkoutservice", "target": "currencyservice", "type": "CALLS", "properties": {}},
+    {"source": "recommendationservice", "target": "productcatalogservice", "type": "CALLS", "properties": {}},
+    {"source": "adservice", "target": "productcatalogservice", "type": "CALLS", "properties": {}},
+    {"source": "loadgenerator", "target": "frontend", "type": "CALLS", "properties": {}},
 ]
 
 PROJECT_TEMPLATES = {
     "default": {"nodes": MOCK_NODES, "edges": MOCK_EDGES},
     "mall": {"nodes": MALL_NODES, "edges": MALL_EDGES},
+    "online-boutique": {"nodes": ONLINE_BOUTIQUE_NODES, "edges": ONLINE_BOUTIQUE_EDGES},
 }
 
 
@@ -214,7 +247,8 @@ class MockDataService:
     async def list_projects(self) -> list[dict[str, Any]]:
         return [
             {"id": "default", "name": "Demo Project", "description": "Sample enterprise architecture"},
-            {"id": "mall", "name": "Mall E-Commerce", "description": "Spring Boot microservices e-commerce platform (40k+ stars)"},
+            {"id": "mall", "name": "Mall E-Commerce", "description": "Spring Boot microservices (40k+ stars)"},
+            {"id": "online-boutique", "name": "Online Boutique", "description": "Google Cloud 11 microservices demo"},
         ]
     
     async def add_nodes(self, nodes: list[dict[str, Any]]) -> int:

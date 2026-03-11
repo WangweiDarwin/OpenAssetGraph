@@ -106,6 +106,13 @@
   font-size: 13px;
 }
 
+.template-stars {
+  font-weight: 400;
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-left: 8px;
+}
+
 .template-desc {
   font-size: 11px;
   color: var(--text-secondary);

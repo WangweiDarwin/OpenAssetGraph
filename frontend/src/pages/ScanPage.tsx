@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Card, Form, Input, Button, Select, message, Space, Typography, Divider, Result, Tabs } from 'antd';
+import { useNavigate } from 'react-router-dom';
+import { Card, Form, Input, Button, Select, message, Space, Divider, Result, Tabs } from 'antd';
 import { GithubOutlined, ScanOutlined, PlusOutlined, ClearOutlined, CodeOutlined } from '@ant-design/icons';
 import './ScanPage.css';
 
@@ -11,17 +12,21 @@ interface ScanResult {
   nodes_added: number;
   edges_added: number;
   message: string;
+  project_id?: string;
 }
 
 const ScanPage: React.FC = () => {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
+  const [scannedProjectId, setScannedProjectId] = useState<string | null>(null);
   const [form] = Form.useForm();
   const [manualForm] = Form.useForm();
 
   const handleGitHubScan = async (values: any) => {
     setLoading(true);
     setScanResult(null);
+    setScannedProjectId(null);
     try {
       const response = await fetch('http://localhost:8002/api/scan/github', {
         method: 'POST',
@@ -30,6 +35,16 @@ const ScanPage: React.FC = () => {
       });
       const data = await response.json();
       setScanResult(data);
+      
+      const urlLower = values.repo_url.toLowerCase();
+      if (urlLower.includes('microservices-demo') || urlLower.includes('googlecloudplatform')) {
+        setScannedProjectId('online-boutique');
+      } else if (urlLower.includes('mall') || urlLower.includes('macrozheng')) {
+        setScannedProjectId('mall');
+      } else if (urlLower.includes('petclinic')) {
+        setScannedProjectId('petclinic');
+      }
+      
       message.success('Scan completed!');
     } catch (error) {
       message.error('Scan failed');
@@ -64,8 +79,17 @@ const ScanPage: React.FC = () => {
       await fetch('http://localhost:8002/api/scan/clear', { method: 'POST' });
       message.success('Topology cleared');
       setScanResult(null);
+      setScannedProjectId(null);
     } catch (error) {
       message.error('Failed to clear');
+    }
+  };
+
+  const handleViewTopology = () => {
+    if (scannedProjectId) {
+      navigate(`/topology?project=${scannedProjectId}`);
+    } else {
+      navigate('/topology');
     }
   };
 
@@ -81,9 +105,18 @@ const ScanPage: React.FC = () => {
 ]`;
 
   const quickTemplates = [
-    { name: 'Mall E-Commerce', url: 'https://github.com/macrozheng/mall', description: 'Spring Boot microservices' },
-    { name: 'Spring PetClinic', url: 'https://github.com/spring-projects/spring-petclinic', description: 'Spring Boot demo' },
-    { name: 'Microservices Demo', url: 'https://github.com/GoogleCloudPlatform/microservices-demo', description: 'Google Cloud demo' },
+    { 
+      name: 'Mall E-Commerce', 
+      url: 'https://github.com/macrozheng/mall', 
+      description: 'Spring Boot microservices',
+      stars: '40k+'
+    },
+    { 
+      name: 'Spring PetClinic', 
+      url: 'https://github.com/spring-projects/spring-petclinic', 
+      description: 'Spring Boot demo',
+      stars: '7k+'
+    },
   ];
 
   const nodeTypes = [
@@ -113,8 +146,8 @@ const ScanPage: React.FC = () => {
                 children: (
                   <Card className="scan-card">
                     <Form form={form} layout="vertical" onFinish={handleGitHubScan}>
-                      <Form.Item name="repo_url" label="Repository URL" rules={[{ required: true }]}>
-                        <Input placeholder="https://github.com/owner/repo" size="large" />
+                      <Form.Item name="repo_url" label="Repository URL" rules={[{ required: true, message: 'Please enter repository URL' }]}>
+                        <Input placeholder="https://github.com/GoogleCloudPlatform/microservices-demo" size="large" />
                       </Form.Item>
                       <div className="form-row">
                         <Form.Item name="branch" label="Branch" initialValue="main" className="form-item-half">
@@ -141,7 +174,7 @@ const ScanPage: React.FC = () => {
                         <div key={t.name} className="template-card" onClick={() => form.setFieldsValue({ repo_url: t.url })}>
                           <div className="template-icon"><CodeOutlined /></div>
                           <div className="template-info">
-                            <div className="template-name">{t.name}</div>
+                            <div className="template-name">{t.name} <span className="template-stars">⭐ {t.stars}</span></div>
                             <div className="template-desc">{t.description}</div>
                           </div>
                         </div>
@@ -193,7 +226,7 @@ const ScanPage: React.FC = () => {
           <Card className="info-card" title="Actions" size="small">
             <Space direction="vertical" style={{ width: '100%' }}>
               <Button icon={<ClearOutlined />} danger onClick={handleClear} block>Clear Topology</Button>
-              <Button type="primary" href="/topology" block>View Topology</Button>
+              <Button type="primary" onClick={handleViewTopology} block>View Topology</Button>
             </Space>
           </Card>
 
@@ -203,6 +236,11 @@ const ScanPage: React.FC = () => {
                 status={scanResult.status === 'success' ? 'success' : 'error'}
                 title={scanResult.message}
                 subTitle={<span>{scanResult.nodes_added} nodes, {scanResult.edges_added} edges</span>}
+                extra={[
+                  <Button type="primary" key="view" onClick={handleViewTopology}>
+                    View Topology
+                  </Button>,
+                ]}
               />
             </Card>
           )}

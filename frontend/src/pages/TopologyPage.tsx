@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Spin, message, Select, Button, Space, Input, Tag, Empty, Tooltip, Drawer } from 'antd';
 import { ReloadOutlined, SearchOutlined, ZoomInOutlined, ZoomOutOutlined, FullscreenOutlined, CloseOutlined } from '@ant-design/icons';
+import { useSearchParams } from 'react-router-dom';
 import TopologyGraph from '../components/TopologyGraph';
 import { topologyApi, TopologyNode, TopologyEdge, TopologyStats } from '../services/api';
 import './TopologyPage.css';
@@ -14,6 +15,9 @@ interface Project {
 }
 
 const TopologyPage: React.FC = () => {
+  const [searchParams] = useSearchParams();
+  const projectFromUrl = searchParams.get('project');
+  
   const [nodes, setNodes] = useState<TopologyNode[]>([]);
   const [edges, setEdges] = useState<TopologyEdge[]>([]);
   const [selectedNode, setSelectedNode] = useState<TopologyNode | null>(null);
@@ -22,7 +26,7 @@ const TopologyPage: React.FC = () => {
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [projects, setProjects] = useState<Project[]>([]);
-  const [currentProject, setCurrentProject] = useState<string>('default');
+  const [currentProject, setCurrentProject] = useState<string>(projectFromUrl || 'default');
   const [drawerVisible, setDrawerVisible] = useState(false);
 
   const loadProjects = useCallback(async () => {
@@ -35,9 +39,15 @@ const TopologyPage: React.FC = () => {
     }
   }, []);
 
-  const loadTopology = useCallback(async () => {
+  const loadTopology = useCallback(async (projectId?: string) => {
     setLoading(true);
     try {
+      const projectToLoad = projectId || currentProject;
+      if (projectToLoad && projectToLoad !== 'default') {
+        await fetch(`http://localhost:8002/api/topology/projects/${projectToLoad}/switch`, {
+          method: 'POST',
+        });
+      }
       const data = await topologyApi.getTopology(undefined, 200);
       setNodes(data.nodes);
       setEdges(data.edges);
@@ -47,7 +57,7 @@ const TopologyPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [currentProject]);
 
   const loadStats = useCallback(async () => {
     try {
@@ -60,9 +70,18 @@ const TopologyPage: React.FC = () => {
 
   useEffect(() => {
     loadProjects();
-    loadTopology();
-    loadStats();
-  }, [loadProjects, loadTopology, loadStats]);
+  }, [loadProjects]);
+
+  useEffect(() => {
+    if (projectFromUrl) {
+      setCurrentProject(projectFromUrl);
+      loadTopology(projectFromUrl);
+      loadStats();
+    } else {
+      loadTopology();
+      loadStats();
+    }
+  }, [projectFromUrl]);
 
   const handleProjectChange = async (projectId: string) => {
     setLoading(true);
@@ -201,7 +220,7 @@ const TopologyPage: React.FC = () => {
           <Select
             value={currentProject}
             onChange={handleProjectChange}
-            style={{ width: 140 }}
+            style={{ width: 160 }}
             size="small"
           >
             {projects.map(p => (
