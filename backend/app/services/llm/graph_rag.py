@@ -5,7 +5,7 @@ from typing import Any, Optional
 
 from ..graph_service import Neo4jService
 from .base import ChatContext, LLMConfig, LLMResponse, LLMService, Message, MessageRole
-from .openai_service import OpenAIService
+from .llm_factory import LLMFactory, LLMProvider
 from .prompt_manager import PromptManager
 
 
@@ -32,13 +32,9 @@ class GraphRAGService:
         self.prompt_manager = prompt_manager or PromptManager()
     
     def _create_default_llm(self) -> LLMService:
-        """Create default LLM service"""
+        """Create default LLM service using factory"""
         from ...core.config import settings
-        config = LLMConfig(
-            model=settings.openai_model,
-            api_key=settings.openai_api_key,
-        )
-        return OpenAIService(config)
+        return LLMFactory.create_from_settings(settings)
     
     async def extract_relevant_context(
         self,

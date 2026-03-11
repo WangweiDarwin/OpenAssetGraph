@@ -73,146 +73,149 @@ class PromptManager:
         self.register(PromptTemplate(
             name="system_base",
             description="Base system prompt for OAG assistant",
-            template="""You are OpenAssetGraph Assistant, an AI-powered enterprise architecture analysis tool.
+            template="""你是 OpenAssetGraph 智能助手，一个专注于企业软件架构分析的 AI 助手。
 
-Your role is to help users understand and optimize their enterprise software architecture by:
-1. Analyzing the topology of databases, services, APIs, and applications
-2. Identifying potential issues like circular dependencies, isolated components, and bottlenecks
-3. Providing recommendations for architecture improvements
-4. Answering questions about the existing asset landscape
+你的核心能力包括：
+1. 分析企业软件架构拓扑，识别数据库、服务、API、应用之间的关系
+2. 发现架构中的潜在问题：循环依赖、单点故障、性能瓶颈
+3. 提供架构优化建议，支持技术决策
+4. 解答关于资产关系、依赖链路的各类问题
 
-You have access to a graph database containing information about:
-- Databases and their tables/columns
-- Services and their APIs
-- Applications and their components
-- Relationships between all assets
+你可以访问图数据库中的以下信息：
+- 数据库及其表、字段信息
+- 微服务及其 API 接口
+- 前端应用及其组件
+- 所有资产之间的依赖关系
 
-Always provide clear, actionable insights backed by the data in the graph.
-When making recommendations, explain the reasoning and potential impact.""",
+回答原则：
+- 基于数据给出精准、可操作的建议
+- 清晰解释分析逻辑和推理过程
+- 使用中文回答，保持专业和友好
+- 当数据不完整时，诚实说明局限性""",
         ))
         
         self.register(PromptTemplate(
             name="topology_analysis",
             description="Analyze topology structure",
-            template="""Analyze the following topology data and provide insights.
+            template="""分析以下架构拓扑数据并提供洞察。
 
-## Topology Data
+## 拓扑数据
 $topology_data
 
-## Analysis Request
+## 分析请求
 $user_query
 
-Please provide:
-1. Key observations about the topology
-2. Potential issues or risks identified
-3. Recommendations for improvement
-4. Any additional insights relevant to the query""",
+请提供以下内容：
+1. **架构概览**：整体拓扑结构的关键特征
+2. **问题识别**：发现的潜在问题或风险点
+3. **优化建议**：具体的改进建议
+4. **深入洞察**：与查询相关的其他有价值信息""",
             variables=["topology_data", "user_query"],
         ))
         
         self.register(PromptTemplate(
             name="dependency_analysis",
             description="Analyze dependencies between components",
-            template="""Analyze the dependencies in the following topology.
+            template="""分析以下架构中的依赖关系。
 
-## Topology Data
+## 拓扑数据
 $topology_data
 
-## Focus Area
+## 关注领域
 $focus_area
 
-Please identify:
-1. Circular dependencies (if any)
-2. Highly coupled components
-3. Potential single points of failure
-4. Recommendations for reducing coupling""",
+请识别：
+1. **循环依赖**：是否存在循环调用链路
+2. **高耦合组件**：依赖关系过于复杂的组件
+3. **单点故障**：关键路径上的风险节点
+4. **解耦建议**：降低耦合的具体方案""",
             variables=["topology_data", "focus_area"],
         ))
         
         self.register(PromptTemplate(
             name="integration_suggestion",
             description="Generate integration suggestions",
-            template="""Based on the existing topology, suggest how to integrate a new component.
+            template="""基于现有架构，为新组件提供集成建议。
 
-## Existing Topology
+## 现有架构
 $topology_data
 
-## New Component Description
+## 新组件描述
 $new_component
 
-## Integration Requirements
+## 集成需求
 $requirements
 
-Please provide:
-1. Recommended integration points
-2. Potential conflicts or overlaps
-3. Required changes to existing components
-4. Step-by-step integration plan""",
+请提供：
+1. **推荐集成点**：最佳的接入位置和方式
+2. **潜在冲突**：可能与现有组件的冲突或重叠
+3. **必要变更**：现有组件需要调整的部分
+4. **集成步骤**：详细的集成实施计划""",
             variables=["topology_data", "new_component", "requirements"],
         ))
         
         self.register(PromptTemplate(
             name="asset_reuse",
             description="Analyze asset reuse opportunities",
-            template="""Analyze opportunities for reusing existing assets instead of building new ones.
+            template="""分析现有资产复用机会，避免重复建设。
 
-## Existing Assets
+## 现有资产
 $existing_assets
 
-## New Requirement
+## 新需求
 $requirement
 
-Please identify:
-1. Existing assets that could be reused or extended
-2. Gaps that would need new development
-3. Estimated effort savings from reuse
-4. Risks of reusing each identified asset""",
+请识别：
+1. **可复用资产**：能够直接复用或扩展的现有资产
+2. **开发缺口**：需要新建的部分
+3. **节省评估**：复用带来的工作量节省估算
+4. **复用风险**：每个可复用资产的潜在风险""",
             variables=["existing_assets", "requirement"],
         ))
         
         self.register(PromptTemplate(
             name="cypher_generation",
             description="Generate Cypher query from natural language",
-            template="""Convert the following natural language query to a Cypher query for Neo4j.
+            template="""将以下自然语言查询转换为 Neo4j Cypher 查询语句。
 
-## Database Schema
-Node types: Database, Table, Column, Service, API, FrontendApp, Component
-Relationship types: CONTAINS, CALLS, EXPOSES, REQUESTS, DERIVES, REFERENCES
+## 数据库模式
+节点类型：Database, Table, Column, Service, API, FrontendApp, Component
+关系类型：CONTAINS, CALLS, EXPOSES, REQUESTS, DERIVES, REFERENCES
 
-## Natural Language Query
+## 自然语言查询
 $natural_query
 
-## Context
+## 上下文
 $context
 
-Provide only the Cypher query without explanation. The query should:
-1. Use proper MATCH/CREATE/MERGE syntax
-2. Return relevant node and relationship data
-3. Include appropriate WHERE clauses for filtering
-4. Use LIMIT for large result sets""",
+只输出 Cypher 查询语句，无需解释。查询应：
+1. 使用正确的 MATCH/CREATE/MERGE 语法
+2. 返回相关的节点和关系数据
+3. 包含适当的 WHERE 子句进行过滤
+4. 对大结果集使用 LIMIT 限制""",
             variables=["natural_query", "context"],
         ))
         
         self.register(PromptTemplate(
             name="review_proposal",
             description="Review architecture proposal",
-            template="""Review the following architecture proposal against the existing topology.
+            template="""对照现有架构审查新的架构提案。
 
-## Existing Topology
+## 现有架构
 $existing_topology
 
-## New Proposal
+## 新提案
 $proposal
 
-## Review Criteria
+## 审查标准
 $criteria
 
-Please provide a structured review:
-1. **Compatibility Analysis**: How well does the proposal fit with existing architecture?
-2. **Risk Assessment**: What are the potential risks?
-3. **Gap Analysis**: What's missing or incomplete?
-4. **Recommendations**: Specific suggestions for improvement
-5. **Overall Assessment**: Approve / Approve with Changes / Reject""",
+请提供结构化审查报告：
+1. **兼容性分析**：提案与现有架构的契合程度
+2. **风险评估**：潜在的风险点
+3. **差距分析**：缺失或不完整的部分
+4. **改进建议**：具体的优化建议
+5. **总体评估**：批准 / 有条件批准 / 驳回""",
             variables=["existing_topology", "proposal", "criteria"],
         ))
         
@@ -221,49 +224,49 @@ Please provide a structured review:
             description="Build chat context with topology data",
             template="""$system_prompt
 
-## Current Topology Summary
-- Total Nodes: $node_count
-- Total Relationships: $edge_count
-- Node Types: $node_types
+## 当前拓扑摘要
+- 节点总数：$node_count
+- 关系总数：$edge_count
+- 节点类型：$node_types
 
-## Relevant Subgraph
+## 相关子图
 $subgraph_data
 
-## Conversation History
+## 对话历史
 $conversation_history
 
-Please respond to the user's query using the provided context.""",
+请基于提供的上下文回答用户问题。""",
             variables=["system_prompt", "node_count", "edge_count", "node_types", "subgraph_data", "conversation_history"],
         ))
 
 
-SYSTEM_PROMPT = """You are OpenAssetGraph Assistant, an AI-powered enterprise architecture analysis tool.
+SYSTEM_PROMPT = """你是 OpenAssetGraph 智能助手，专注于企业软件架构分析。
 
-Your capabilities include:
-1. Analyzing enterprise software topology
-2. Identifying architectural issues and risks
-3. Providing optimization recommendations
-4. Answering questions about assets and their relationships
+你的核心能力：
+1. 分析企业软件架构拓扑
+2. 识别架构问题和风险
+3. 提供优化建议
+4. 解答资产关系问题
 
-You have access to a graph database containing:
-- Databases, Tables, Columns
-- Services, APIs
-- Frontend Applications, Components
-- All relationships between these assets
+你可以访问图数据库：
+- 数据库、表、字段
+- 服务、API
+- 前端应用、组件
+- 所有资产关系
 
-Guidelines:
-- Be precise and data-driven in your responses
-- Explain your reasoning clearly
-- Provide actionable recommendations
-- Acknowledge limitations when data is incomplete"""
+回答原则：
+- 精准、数据驱动
+- 清晰解释推理过程
+- 提供可操作建议
+- 承认数据局限性"""
 
 
 DEFAULT_PROMPTS = {
     "system": SYSTEM_PROMPT,
-    "topology_analysis": """Analyze the provided topology data and answer the user's question.
+    "topology_analysis": """分析提供的拓扑数据并回答用户问题。
 
-Focus on:
-1. Structural patterns and relationships
-2. Potential issues or anomalies
-3. Actionable recommendations""",
+关注点：
+1. 结构模式和关系
+2. 潜在问题或异常
+3. 可操作的建议""",
 }

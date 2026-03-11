@@ -18,7 +18,8 @@ OpenAssetGraph is an intelligent platform that combines graph database technolog
 | Layer | Technologies |
 |-------|-------------|
 | Frontend | React 18, TypeScript, Ant Design, @antv/g6 |
-| Backend | Python 3.11+, FastAPI, Neo4j, OpenAI API |
+| Backend | Python 3.11+, FastAPI, Neo4j |
+| LLM | GLM-4, Kimi, DeepSeek, OpenAI (multi-provider support) |
 | Deploy | Docker, Docker Compose, GitHub Actions |
 
 ## Quick Start
@@ -73,12 +74,29 @@ Full API docs: http://localhost:8002/docs
 Create `.env` file in backend directory:
 
 ```env
+# LLM Provider (openai, glm, kimi, deepseek)
+LLM_PROVIDER=glm
+LLM_MODEL=glm-4-flash
+
+# API Keys
+GLM_API_KEY=your-glm-api-key      # https://open.bigmodel.cn/
+KIMI_API_KEY=your-kimi-api-key    # https://platform.moonshot.cn/
+OPENAI_API_KEY=your-openai-key    # Optional fallback
+
+# Database
 NEO4J_URI=bolt://localhost:7687
 NEO4J_USER=neo4j
 NEO4J_PASSWORD=password
-OPENAI_API_KEY=your-api-key
-OPENAI_MODEL=gpt-4-turbo-preview
 ```
+
+### Supported LLM Providers
+
+| Provider | Models | API Key Source |
+|----------|--------|----------------|
+| **GLM (智谱AI)** | glm-4, glm-4-flash, glm-4-plus | [open.bigmodel.cn](https://open.bigmodel.cn/) |
+| **Kimi (月之暗面)** | moonshot-v1-8k, moonshot-v1-32k, moonshot-v1-128k | [platform.moonshot.cn](https://platform.moonshot.cn/) |
+| **DeepSeek** | deepseek-chat, deepseek-coder | [platform.deepseek.com](https://platform.deepseek.com/) |
+| **OpenAI** | gpt-4, gpt-4-turbo, gpt-4o | [platform.openai.com](https://platform.openai.com/) |
 
 ## Project Structure
 

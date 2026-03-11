@@ -20,6 +20,16 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     openai_model: str = "gpt-4-turbo-preview"
     
+    llm_provider: str = "glm"
+    llm_model: str = "glm-4-flash"
+    llm_base_url: str = ""
+    llm_temperature: float = 0.7
+    llm_max_tokens: int = 4096
+    
+    glm_api_key: str = ""
+    kimi_api_key: str = ""
+    deepseek_api_key: str = ""
+    
     celery_broker_url: str = "redis://localhost:6379/1"
     celery_result_backend: str = "redis://localhost:6379/2"
     
