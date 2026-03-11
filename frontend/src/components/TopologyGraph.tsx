@@ -1,13 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
-import G6, { Graph, TreeGraph } from '@antv/g6';
+import G6, { Graph, Node, Edge } from '@antv/g6';
+import { Spin } from 'antd';
 
 interface TopologyNode {
   id: string;
   label: string;
   type: string;
   properties?: Record<string, any>;
-  x?: number;
-  y?: number;
 }
 
 interface TopologyEdge {
@@ -22,240 +21,262 @@ interface TopologyGraphProps {
   edges: TopologyEdge[];
   onNodeClick?: (node: TopologyNode) => void;
   onNodeDoubleClick?: (node: TopologyNode) => void;
-  width?: number;
-  height?: number;
 }
+
+const nodeTypeColors: Record<string, string> = {
+  Database: '#10b981',
+  Service: '#3b82f6',
+  API: '#8b5cf6',
+  FrontendApp: '#f59e0b',
+  Table: '#6b7280',
+  Library: '#ec4899',
+  Component: '#06b6d4',
+};
 
 const TopologyGraph: React.FC<TopologyGraphProps> = ({
   nodes,
   edges,
   onNodeClick,
   onNodeDoubleClick,
-  width = 800,
-  height = 600,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const graphRef = useRef<Graph | null>(null);
-  const [selectedNode, setSelectedNode] = useState<TopologyNode | null>(null);
-
-  const getNodeColor = (type: string): string => {
-    const colorMap: Record<string, string> = {
-      Database: '#1890ff',
-      Table: '#52c41a',
-      Column: '#faad14',
-      Service: '#722ed1',
-      API: '#eb2f96',
-      FrontendApp: '#13c2c2',
-      Component: '#fa8c16',
-    };
-    return colorMap[type] || '#8c8c8c';
-  };
-
-  const getNodeIcon = (type: string): string => {
-    const iconMap: Record<string, string> = {
-      Database: '🗄️',
-      Table: '📊',
-      Column: '📝',
-      Service: '⚙️',
-      API: '🔌',
-      FrontendApp: '🖥️',
-      Component: '🧩',
-    };
-    return iconMap[type] || '📦';
-  };
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!containerRef.current) return;
+    if (!containerRef.current || nodes.length === 0) return;
+
+    const width = containerRef.current.offsetWidth;
+    const height = containerRef.current.offsetHeight;
+
+    if (graphRef.current) {
+      graphRef.current.destroy();
+    }
 
     const graph = new G6.Graph({
       container: containerRef.current,
       width,
       height,
       modes: {
-        default: [
-          'drag-canvas',
-          'zoom-canvas',
-          'drag-node',
-          {
-            type: 'tooltip',
-            formatText: (model: any) => {
-              return `${model.label}\nType: ${model.type}`;
-            },
-            offset: 10,
-          },
-        ],
+        default: ['drag-canvas', 'zoom-canvas', 'drag-node'],
       },
       layout: {
         type: 'force',
         preventOverlap: true,
-        linkDistance: 150,
-        nodeStrength: -50,
+        nodeSize: 80,
+        linkDistance: 180,
+        nodeStrength: -400,
         edgeStrength: 0.1,
-        nodeSize: 60,
+        gravity: 80,
       },
       defaultNode: {
-        size: [60, 60],
+        type: 'rect',
+        size: [120, 50],
         style: {
-          fill: '#C6E5FF',
-          stroke: '#5B8FF9',
+          fill: '#ffffff',
+          stroke: '#e2e8f0',
           lineWidth: 2,
+          radius: 8,
         },
         labelCfg: {
           style: {
-            fill: '#000000',
+            fill: '#1e293b',
             fontSize: 12,
+            fontWeight: 500,
           },
-          position: 'bottom',
+          position: 'center',
         },
       },
       defaultEdge: {
+        type: 'quadratic',
         style: {
-          stroke: '#b5b5b5',
-          lineWidth: 2,
+          stroke: '#cbd5e1',
+          lineWidth: 1.5,
           endArrow: {
-            path: G6.Arrow.triangle(8, 10, 0),
-            fill: '#b5b5b5',
+            path: G6.Arrow.triangle(6, 8, 0),
+            fill: '#94a3b8',
           },
         },
       },
       nodeStateStyles: {
-        selected: {
-          stroke: '#f00',
-          lineWidth: 3,
-        },
         hover: {
-          fill: '#f0f0f0',
+          fill: '#f0f7ff',
+          stroke: '#0066cc',
+          lineWidth: 2,
+          shadowColor: 'rgba(0, 102, 204, 0.15)',
+          shadowBlur: 10,
+        },
+        selected: {
+          fill: '#f0f7ff',
+          stroke: '#0066cc',
+          lineWidth: 2,
+          shadowColor: 'rgba(0, 102, 204, 0.25)',
+          shadowBlur: 15,
         },
       },
       edgeStateStyles: {
         hover: {
-          stroke: '#1890ff',
-          lineWidth: 3,
+          stroke: '#0066cc',
+          lineWidth: 2,
         },
       },
     });
 
-    graphRef.current = graph;
-
-    graph.on('node:click', (evt: any) => {
-      const { item } = evt;
-      const model = item.getModel();
-      
-      if (selectedNode) {
-        graph.setItemState(selectedNode.id, 'selected', false);
-      }
-      
-      graph.setItemState(item, 'selected', true);
-      setSelectedNode(model);
-      
-      if (onNodeClick) {
-        onNodeClick(model);
-      }
-    });
-
-    graph.on('node:dblclick', (evt: any) => {
-      const { item } = evt;
-      const model = item.getModel();
-      
-      if (onNodeDoubleClick) {
-        onNodeDoubleClick(model);
-      }
-    });
-
-    graph.on('node:mouseenter', (evt: any) => {
-      const { item } = evt;
-      graph.setItemState(item, 'hover', true);
-    });
-
-    graph.on('node:mouseleave', (evt: any) => {
-      const { item } = evt;
-      graph.setItemState(item, 'hover', false);
-    });
-
-    graph.on('edge:mouseenter', (evt: any) => {
-      const { item } = evt;
-      graph.setItemState(item, 'hover', true);
-    });
-
-    graph.on('edge:mouseleave', (evt: any) => {
-      const { item } = evt;
-      graph.setItemState(item, 'hover', false);
-    });
-
-    return () => {
-      if (graph) {
-        graph.destroy();
-      }
-    };
-  }, [width, height, onNodeClick, onNodeDoubleClick, selectedNode]);
-
-  useEffect(() => {
-    if (!graphRef.current || !nodes.length) return;
-
-    const graph = graphRef.current;
-
-    const g6Nodes = nodes.map((node) => ({
-      id: node.id,
-      label: node.label,
-      type: 'circle',
-      style: {
-        fill: getNodeColor(node.type),
-        stroke: getNodeColor(node.type),
-        lineWidth: 2,
-      },
-      labelCfg: {
+    const g6Nodes = nodes.map((node) => {
+      const label = node.label.length > 14 ? node.label.substring(0, 14) + '...' : node.label;
+      return {
+        id: node.id,
+        label: label,
+        type: 'rect',
+        size: [Math.max(100, label.length * 9 + 20), 36],
         style: {
-          fill: '#000000',
-          fontSize: 12,
-          fontWeight: 'bold',
+          fill: '#ffffff',
+          stroke: nodeTypeColors[node.type] || '#6b7280',
+          lineWidth: 2,
+          radius: 6,
+          shadowColor: 'rgba(0, 0, 0, 0.08)',
+          shadowBlur: 4,
+          shadowOffsetX: 0,
+          shadowOffsetY: 2,
         },
-        position: 'bottom',
-        offset: 10,
-      },
-      ...node,
-    }));
+        labelCfg: {
+          style: {
+            fill: '#1e293b',
+            fontSize: 12,
+            fontWeight: 500,
+          },
+          position: 'center',
+        },
+        nodeData: node,
+      };
+    });
 
     const g6Edges = edges.map((edge, index) => ({
       id: `edge-${index}`,
       source: edge.source,
       target: edge.target,
-      label: edge.type,
+      type: 'quadratic',
       style: {
-        stroke: '#b5b5b5',
-        lineWidth: 2,
+        stroke: '#cbd5e1',
+        lineWidth: 1.5,
         endArrow: {
-          path: G6.Arrow.triangle(8, 10, 0),
-          fill: '#b5b5b5',
+          path: G6.Arrow.triangle(5, 6, 0),
+          fill: '#94a3b8',
         },
       },
+      label: edge.type,
       labelCfg: {
         style: {
-          fill: '#666666',
+          fill: '#64748b',
           fontSize: 10,
+          background: {
+            fill: '#ffffff',
+            padding: [2, 4, 2, 4],
+            radius: 4,
+          },
         },
-        refY: 5,
+        refY: 8,
       },
+      edgeData: edge,
     }));
 
-    graph.changeData({
+    graph.data({
       nodes: g6Nodes,
       edges: g6Edges,
     });
 
-    graph.layout();
-  }, [nodes, edges]);
+    graph.on('node:mouseenter', (e) => {
+      graph.setItemState(e.item as Node, 'hover', true);
+    });
+
+    graph.on('node:mouseleave', (e) => {
+      graph.setItemState(e.item as Node, 'hover', false);
+    });
+
+    graph.on('node:click', (e) => {
+      const model = e.item?.getModel();
+      if (model && onNodeClick) {
+        onNodeClick((model as any).nodeData);
+      }
+      graph.getNodes().forEach((node) => {
+        graph.setItemState(node, 'selected', false);
+      });
+      graph.setItemState(e.item as Node, 'selected', true);
+    });
+
+    graph.on('node:dblclick', (e) => {
+      const model = e.item?.getModel();
+      if (model && onNodeDoubleClick) {
+        onNodeDoubleClick((model as any).nodeData);
+      }
+    });
+
+    graph.on('edge:mouseenter', (e) => {
+      graph.setItemState(e.item as Edge, 'hover', true);
+    });
+
+    graph.on('edge:mouseleave', (e) => {
+      graph.setItemState(e.item as Edge, 'hover', false);
+    });
+
+    graph.render();
+    graphRef.current = graph;
+    setLoading(false);
+
+    setTimeout(() => {
+      if (graphRef.current) {
+        graphRef.current.fitView(20);
+      }
+    }, 100);
+
+    const handleResize = () => {
+      if (containerRef.current && graphRef.current) {
+        graphRef.current.changeSize(
+          containerRef.current.offsetWidth,
+          containerRef.current.offsetHeight
+        );
+        graphRef.current.fitCenter();
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      if (graphRef.current) {
+        graphRef.current.destroy();
+      }
+    };
+  }, [nodes, edges, onNodeClick, onNodeDoubleClick]);
+
+  if (nodes.length === 0) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        height: '100%',
+        color: 'var(--text-secondary)'
+      }}>
+        <p>No topology data available</p>
+      </div>
+    );
+  }
 
   return (
-    <div
-      ref={containerRef}
-      style={{
-        width: '100%',
-        height: '100%',
-        border: '1px solid #d9d9d9',
-        borderRadius: '4px',
-        overflow: 'hidden',
-      }}
-    />
+    <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+      {loading && (
+        <div style={{ 
+          position: 'absolute', 
+          top: '50%', 
+          left: '50%', 
+          transform: 'translate(-50%, -50%)' 
+        }}>
+          <Spin />
+        </div>
+      )}
+      <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+    </div>
   );
 };
 

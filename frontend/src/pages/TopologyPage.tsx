@@ -1,13 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Layout, Spin, message, Typography, Row, Col, Card, Statistic, Select, Button, Space } from 'antd';
-import { NodeIndexOutlined, BranchesOutlined, DatabaseOutlined, ReloadOutlined } from '@ant-design/icons';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { Spin, message, Select, Button, Space, Input, Tag, Empty, Tooltip, Drawer } from 'antd';
+import { ReloadOutlined, SearchOutlined, ZoomInOutlined, ZoomOutOutlined, FullscreenOutlined, CloseOutlined } from '@ant-design/icons';
 import TopologyGraph from '../components/TopologyGraph';
-import NodeDetailPanel from '../components/NodeDetailPanel';
-import SearchPanel from '../components/SearchPanel';
 import { topologyApi, TopologyNode, TopologyEdge, TopologyStats } from '../services/api';
+import './TopologyPage.css';
 
-const { Content, Sider } = Layout;
-const { Title } = Typography;
 const { Option } = Select;
 
 interface Project {
@@ -23,8 +20,10 @@ const TopologyPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<TopologyStats | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [projects, setProjects] = useState<Project[]>([]);
   const [currentProject, setCurrentProject] = useState<string>('default');
+  const [drawerVisible, setDrawerVisible] = useState(false);
 
   const loadProjects = useCallback(async () => {
     try {
@@ -77,7 +76,7 @@ const TopologyPage: React.FC = () => {
       setEdges(data.edges);
       const statsData = await topologyApi.getStats();
       setStats(statsData);
-      message.success(`Switched to project: ${projectId}`);
+      message.success(`Switched to: ${projectId}`);
     } catch (error) {
       console.error('Failed to switch project:', error);
       message.error('Failed to switch project');
@@ -89,36 +88,31 @@ const TopologyPage: React.FC = () => {
   const handleRefresh = async () => {
     await loadTopology();
     await loadStats();
-    message.success('Data refreshed');
+    message.success('Refreshed');
   };
 
   const handleNodeClick = (node: TopologyNode) => {
     setSelectedNode(node);
+    setDrawerVisible(true);
   };
 
   const handleNodeDoubleClick = async (node: TopologyNode) => {
     try {
       const detailedNode = await topologyApi.getNode(node.id);
       setSelectedNode(detailedNode);
+      setDrawerVisible(true);
     } catch (error) {
       console.error('Failed to load node details:', error);
-      message.error('Failed to load node details');
     }
   };
 
-  const handleSearch = async (query: string, filters: { type: string | null; property: string | null }) => {
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) return;
     setSearchLoading(true);
     try {
-      const types = filters.type ? [filters.type] : undefined;
-      const response = await topologyApi.searchNodes(query, types, 50);
+      const response = await topologyApi.searchNodes(searchQuery, undefined, 50);
       if (response.results.length > 0) {
-        const resultNodes = response.results.map(r => ({
-          id: r.id,
-          label: r.label,
-          type: r.type,
-          properties: r.properties,
-        }));
-        setNodes(resultNodes);
+        setNodes(response.results);
         setEdges([]);
         message.success(`Found ${response.count} nodes`);
       } else {
@@ -126,98 +120,154 @@ const TopologyPage: React.FC = () => {
       }
     } catch (error) {
       console.error('Search failed:', error);
-      message.error('Search failed');
     } finally {
       setSearchLoading(false);
     }
   };
 
-  const handleNodeSelect = (node: TopologyNode) => {
-    setSelectedNode(node);
+  const nodeTypeColors: Record<string, string> = {
+    Database: '#10b981',
+    Service: '#3b82f6',
+    API: '#8b5cf6',
+    FrontendApp: '#f59e0b',
+    Table: '#6b7280',
+    Library: '#ec4899',
   };
 
-  if (loading) {
+  const nodeTypeCount = useMemo(() => {
+    const counts: Record<string, number> = {};
+    nodes.forEach(n => {
+      counts[n.type] = (counts[n.type] || 0) + 1;
+    });
+    return counts;
+  }, [nodes]);
+
+  if (loading && nodes.length === 0) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-        <Spin size="large" tip="Loading topology..." />
+      <div className="loading-container">
+        <Spin size="large" />
+        <p>Loading topology...</p>
       </div>
     );
   }
 
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <Row gutter={16} style={{ marginBottom: 16 }}>
-        <Col span={6}>
-          <Card size="small">
-            <Statistic
-              title="Total Nodes"
-              value={stats?.total_nodes || 0}
-              prefix={<NodeIndexOutlined />}
+    <div className="topology-page">
+      <div className="topology-toolbar">
+        <div className="toolbar-left">
+          <Space.Compact className="search-box">
+            <Input
+              placeholder="Search nodes..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              onPressEnter={handleSearch}
+              prefix={<SearchOutlined />}
+              allowClear
             />
-          </Card>
-        </Col>
-        <Col span={6}>
-          <Card size="small">
-            <Statistic
-              title="Total Edges"
-              value={stats?.total_edges || 0}
-              prefix={<BranchesOutlined />}
-            />
-          </Card>
-        </Col>
-        <Col span={6}>
-          <Card size="small">
-            <Statistic
-              title="Node Types"
-              value={stats?.node_types ? Object.keys(stats.node_types).length : 0}
-              prefix={<DatabaseOutlined />}
-            />
-          </Card>
-        </Col>
-        <Col span={6}>
-          <Card size="small">
-            <Space direction="vertical" style={{ width: '100%' }}>
-              <span style={{ fontSize: 12, color: '#666' }}>Project</span>
-              <Select
-                value={currentProject}
-                onChange={handleProjectChange}
-                style={{ width: '100%' }}
-              >
-                {projects.map(p => (
-                  <Option key={p.id} value={p.id}>{p.name}</Option>
-                ))}
-              </Select>
-              <Button icon={<ReloadOutlined />} onClick={handleRefresh} size="small">
-                Refresh
-              </Button>
-            </Space>
-          </Card>
-        </Col>
-      </Row>
+            <Button type="primary" onClick={handleSearch} loading={searchLoading}>
+              Search
+            </Button>
+          </Space.Compact>
+        </div>
+        
+        <div className="toolbar-center">
+          <div className="stats-mini">
+            <span className="stat-item">
+              <span className="stat-label">Nodes</span>
+              <span className="stat-value">{stats?.total_nodes || 0}</span>
+            </span>
+            <span className="stat-divider">|</span>
+            <span className="stat-item">
+              <span className="stat-label">Edges</span>
+              <span className="stat-value">{stats?.total_edges || 0}</span>
+            </span>
+            <span className="stat-divider">|</span>
+            <span className="stat-item">
+              <span className="stat-label">Types</span>
+              <span className="stat-value">{Object.keys(nodeTypeCount).length}</span>
+            </span>
+          </div>
+          
+          <div className="type-tags">
+            {Object.entries(nodeTypeCount).map(([type, count]) => (
+              <Tag key={type} color={nodeTypeColors[type] || '#666'} className="type-tag">
+                {type} ({count})
+              </Tag>
+            ))}
+          </div>
+        </div>
+        
+        <div className="toolbar-right">
+          <Select
+            value={currentProject}
+            onChange={handleProjectChange}
+            style={{ width: 140 }}
+            size="small"
+          >
+            {projects.map(p => (
+              <Option key={p.id} value={p.id}>{p.name}</Option>
+            ))}
+          </Select>
+          <Button icon={<ReloadOutlined />} onClick={handleRefresh} size="small">
+            Refresh
+          </Button>
+        </div>
+      </div>
 
-      <Layout style={{ flex: 1, background: 'transparent' }}>
-        <Sider width={300} theme="light" style={{ padding: 8, overflow: 'auto' }}>
-          <SearchPanel
-            onSearch={handleSearch}
-            onNodeSelect={handleNodeSelect}
-            nodes={nodes}
-            loading={searchLoading}
-          />
-        </Sider>
-        <Content style={{ padding: '0 8px' }}>
+      <div className="topology-content">
+        {nodes.length === 0 ? (
+          <div className="empty-topology">
+            <Empty description="No topology data. Scan a project to get started." />
+          </div>
+        ) : (
           <TopologyGraph
             nodes={nodes}
             edges={edges}
             onNodeClick={handleNodeClick}
             onNodeDoubleClick={handleNodeDoubleClick}
-            width={800}
-            height={500}
           />
-        </Content>
-        <Sider width={350} theme="light" style={{ padding: 8, overflow: 'auto' }}>
-          <NodeDetailPanel node={selectedNode} />
-        </Sider>
-      </Layout>
+        )}
+      </div>
+
+      <Drawer
+        title={
+          selectedNode ? (
+            <Space>
+              <Tag color={nodeTypeColors[selectedNode.type] || '#666'}>
+                {selectedNode.type}
+              </Tag>
+              <span>{selectedNode.label}</span>
+            </Space>
+          ) : null
+        }
+        placement="right"
+        width={360}
+        onClose={() => setDrawerVisible(false)}
+        open={drawerVisible}
+        className="node-drawer"
+        closeIcon={<CloseOutlined />}
+      >
+        {selectedNode && (
+          <div className="node-details">
+            <div className="node-id">ID: {selectedNode.id}</div>
+            <div className="properties-section">
+              <h4>Properties</h4>
+              {selectedNode.properties && Object.keys(selectedNode.properties).length > 0 ? (
+                <div className="property-list">
+                  {Object.entries(selectedNode.properties).map(([key, value]) => (
+                    <div key={key} className="property-item">
+                      <span className="property-key">{key}</span>
+                      <span className="property-value">{String(value)}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <Empty description="No properties" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+              )}
+            </div>
+          </div>
+        )}
+      </Drawer>
     </div>
   );
 };

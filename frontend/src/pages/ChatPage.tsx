@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Card, Input, Button, List, Typography, Space, Spin, Empty, Tag, Avatar, Tooltip } from 'antd';
-import { SendOutlined, RobotOutlined, UserOutlined, ClearOutlined, LoadingOutlined } from '@ant-design/icons';
+import { Input, Button, Space, Spin, Empty, Tag, Avatar, Tooltip } from 'antd';
+import { SendOutlined, RobotOutlined, UserOutlined, ClearOutlined, LoadingOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import './ChatPage.css';
 
 const { TextArea } = Input;
-const { Text, Paragraph } = Typography;
 
 interface ChatMessage {
   id: string;
@@ -12,15 +12,10 @@ interface ChatMessage {
   timestamp: Date;
 }
 
-interface ChatPageProps {
-  apiBaseUrl?: string;
-}
-
-const ChatPage: React.FC<ChatPageProps> = ({ apiBaseUrl = 'http://localhost:8001' }) => {
+const ChatPage: React.FC = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [loading, setLoading] = useState(false);
-  const [streamingContent, setStreamingContent] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<any>(null);
 
@@ -30,7 +25,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ apiBaseUrl = 'http://localhost:8001
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, streamingContent]);
+  }, [messages]);
 
   const sendMessage = async () => {
     if (!inputValue.trim() || loading) return;
@@ -45,7 +40,6 @@ const ChatPage: React.FC<ChatPageProps> = ({ apiBaseUrl = 'http://localhost:8001
     setMessages(prev => [...prev, userMessage]);
     setInputValue('');
     setLoading(true);
-    setStreamingContent('');
 
     try {
       const conversationHistory = messages.map(msg => ({
@@ -53,20 +47,16 @@ const ChatPage: React.FC<ChatPageProps> = ({ apiBaseUrl = 'http://localhost:8001
         content: msg.content,
       }));
 
-      const response = await fetch(`${apiBaseUrl}/api/chat`, {
+      const response = await fetch('http://localhost:8002/api/chat', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: userMessage.content,
           conversation_history: conversationHistory,
         }),
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+      if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
 
       const data = await response.json();
 
@@ -89,7 +79,6 @@ const ChatPage: React.FC<ChatPageProps> = ({ apiBaseUrl = 'http://localhost:8001
       setMessages(prev => [...prev, errorMessage]);
     } finally {
       setLoading(false);
-      setStreamingContent('');
     }
   };
 
@@ -100,177 +89,91 @@ const ChatPage: React.FC<ChatPageProps> = ({ apiBaseUrl = 'http://localhost:8001
     }
   };
 
-  const clearChat = () => {
-    setMessages([]);
-  };
+  const clearChat = () => setMessages([]);
 
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  };
+  const formatTime = (date: Date) => date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   const quickQuestions = [
-    'Show me all databases in the topology',
-    'Find circular dependencies',
-    'What services call the User API?',
-    'Analyze the architecture for risks',
+    { icon: '🔍', text: 'Show all databases' },
+    { icon: '🔗', text: 'Find circular dependencies' },
+    { icon: '📊', text: 'Analyze architecture risks' },
+    { icon: '⚡', text: 'What services call User API?' },
   ];
 
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <Card
-        title={
-          <Space>
-            <RobotOutlined />
-            <span>AI Architecture Assistant</span>
-          </Space>
-        }
-        extra={
-          <Button icon={<ClearOutlined />} onClick={clearChat} size="small">
-            Clear Chat
-          </Button>
-        }
-        style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
-        bodyStyle={{ flex: 1, display: 'flex', flexDirection: 'column', padding: 0 }}
-      >
-        <div style={{ flex: 1, overflow: 'auto', padding: '16px' }}>
-          {messages.length === 0 ? (
-            <div style={{ height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
-              <Empty
-                description={
-                  <Space direction="vertical" size="large">
-                    <Text>Start a conversation with the AI Architecture Assistant</Text>
-                    <div>
-                      <Text type="secondary">Try asking:</Text>
-                      <div style={{ marginTop: 8 }}>
-                        {quickQuestions.map((q, i) => (
-                          <Tag
-                            key={i}
-                            style={{ cursor: 'pointer', margin: '4px' }}
-                            color="blue"
-                            onClick={() => {
-                              setInputValue(q);
-                              inputRef.current?.focus();
-                            }}
-                          >
-                            {q}
-                          </Tag>
-                        ))}
-                      </div>
-                    </div>
-                  </Space>
-                }
-              />
-            </div>
-          ) : (
-            <List
-              dataSource={messages}
-              renderItem={(item) => (
-                <List.Item style={{ border: 'none', padding: '8px 0' }}>
-                  <div
-                    style={{
-                      display: 'flex',
-                      width: '100%',
-                      flexDirection: item.role === 'user' ? 'row-reverse' : 'row',
-                      gap: '12px',
-                    }}
-                  >
-                    <Avatar
-                      icon={item.role === 'user' ? <UserOutlined /> : <RobotOutlined />}
-                      style={{
-                        backgroundColor: item.role === 'user' ? '#1890ff' : '#52c41a',
-                        flexShrink: 0,
-                      }}
-                    />
-                    <div
-                      style={{
-                        maxWidth: '80%',
-                        padding: '12px 16px',
-                        borderRadius: '12px',
-                        backgroundColor: item.role === 'user' ? '#1890ff' : '#f5f5f5',
-                        color: item.role === 'user' ? '#fff' : 'inherit',
-                      }}
-                    >
-                      <Paragraph
-                        style={{
-                          margin: 0,
-                          color: item.role === 'user' ? '#fff' : 'inherit',
-                          whiteSpace: 'pre-wrap',
-                        }}
-                      >
-                        {item.content}
-                      </Paragraph>
-                      <Text
-                        type="secondary"
-                        style={{
-                          fontSize: '11px',
-                          display: 'block',
-                          marginTop: '4px',
-                          color: item.role === 'user' ? 'rgba(255,255,255,0.7)' : undefined,
-                        }}
-                      >
-                        {formatTime(item.timestamp)}
-                      </Text>
-                    </div>
-                  </div>
-                </List.Item>
-              )}
-            />
-          )}
-          
-          {loading && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 0' }}>
-              <Avatar
-                icon={<RobotOutlined />}
-                style={{ backgroundColor: '#52c41a', flexShrink: 0 }}
-              />
-              <div
-                style={{
-                  padding: '12px 16px',
-                  borderRadius: '12px',
-                  backgroundColor: '#f5f5f5',
-                }}
-              >
-                {streamingContent ? (
-                  <Paragraph style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
-                    {streamingContent}
-                  </Paragraph>
-                ) : (
-                  <Spin indicator={<LoadingOutlined style={{ fontSize: 16 }} spin />} />
-                )}
-              </div>
-            </div>
-          )}
-          
-          <div ref={messagesEndRef} />
+    <div className="chat-page">
+      <div className="chat-header">
+        <div className="chat-title">
+          <RobotOutlined className="chat-icon" />
+          <div>
+            <h2>AI Architecture Assistant</h2>
+            <p>Ask questions about your topology</p>
+          </div>
         </div>
+        <Button icon={<ClearOutlined />} onClick={clearChat}>Clear</Button>
+      </div>
 
-        <div style={{ padding: '16px', borderTop: '1px solid #f0f0f0' }}>
-          <Space.Compact style={{ width: '100%' }}>
-            <TextArea
-              ref={inputRef}
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="Ask about your architecture..."
-              autoSize={{ minRows: 1, maxRows: 4 }}
-              style={{ borderRadius: '8px 0 0 8px' }}
-              disabled={loading}
-            />
-            <Button
-              type="primary"
-              icon={<SendOutlined />}
-              onClick={sendMessage}
-              loading={loading}
-              style={{ borderRadius: '0 8px 8px 0', height: 'auto' }}
-            >
-              Send
-            </Button>
-          </Space.Compact>
-          <Text type="secondary" style={{ fontSize: '11px', marginTop: '4px', display: 'block' }}>
-            Press Enter to send, Shift+Enter for new line
-          </Text>
-        </div>
-      </Card>
+      <div className="chat-body">
+        {messages.length === 0 ? (
+          <div className="chat-welcome">
+            <div className="welcome-icon"><ThunderboltOutlined /></div>
+            <h3>How can I help you?</h3>
+            <p>Ask me anything about your architecture topology</p>
+            <div className="quick-actions">
+              {quickQuestions.map((q, i) => (
+                <div key={i} className="quick-action" onClick={() => { setInputValue(q.text); inputRef.current?.focus(); }}>
+                  <span>{q.icon}</span>
+                  <span>{q.text}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="messages-container">
+            {messages.map((msg) => (
+              <div key={msg.id} className={`message ${msg.role}`}>
+                <Avatar
+                  icon={msg.role === 'user' ? <UserOutlined /> : <RobotOutlined />}
+                  className={`message-avatar ${msg.role}`}
+                  size={32}
+                />
+                <div className="message-content">
+                  <div className="message-header">
+                    <span className="message-role">{msg.role === 'user' ? 'You' : 'AI Assistant'}</span>
+                    <span className="message-time">{formatTime(msg.timestamp)}</span>
+                  </div>
+                  <div className="message-text">{msg.content}</div>
+                </div>
+              </div>
+            ))}
+            {loading && (
+              <div className="message assistant">
+                <Avatar icon={<RobotOutlined />} className="message-avatar assistant" size={32} />
+                <div className="message-content">
+                  <div className="message-loading">
+                    <LoadingOutlined spin />
+                    <span>Thinking...</span>
+                  </div>
+                </div>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+        )}
+      </div>
+
+      <div className="chat-input">
+        <TextArea
+          ref={inputRef}
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
+          onKeyPress={handleKeyPress}
+          placeholder="Ask about your architecture..."
+          autoSize={{ minRows: 1, maxRows: 4 }}
+        />
+        <Button type="primary" icon={<SendOutlined />} onClick={sendMessage} loading={loading} />
+      </div>
+      <div className="chat-hint">Press Enter to send, Shift+Enter for new line</div>
     </div>
   );
 };

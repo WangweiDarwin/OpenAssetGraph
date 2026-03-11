@@ -1,18 +1,19 @@
-import React from 'react';
-import { Layout, Menu } from 'antd';
+import React, { useState } from 'react';
+import { Layout, Menu, Button } from 'antd';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
-import { HomeOutlined, ApartmentOutlined, MessageOutlined, FileSearchOutlined, ScanOutlined } from '@ant-design/icons';
+import { HomeOutlined, ApartmentOutlined, MessageOutlined, FileSearchOutlined, ScanOutlined, MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons';
 import TopologyPage from './pages/TopologyPage';
 import ChatPage from './pages/ChatPage';
 import ScanPage from './pages/ScanPage';
 import './App.css';
 
-const { Header, Content, Sider } = Layout;
+const { Header, Sider, Content } = Layout;
 
 const App: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  
+  const [collapsed, setCollapsed] = useState(false);
+
   const getSelectedKey = () => {
     switch (location.pathname) {
       case '/': return '1';
@@ -24,90 +25,177 @@ const App: React.FC = () => {
     }
   };
 
+  const menuItems = [
+    { key: '1', icon: <HomeOutlined />, label: 'Home' },
+    { key: '2', icon: <ApartmentOutlined />, label: 'Topology' },
+    { key: '3', icon: <MessageOutlined />, label: 'AI Chat' },
+    { key: '4', icon: <ScanOutlined />, label: 'Scan' },
+    { key: '5', icon: <FileSearchOutlined />, label: 'Review' },
+  ];
+
+  const handleMenuClick = (key: string) => {
+    switch (key) {
+      case '1': navigate('/'); break;
+      case '2': navigate('/topology'); break;
+      case '3': navigate('/chat'); break;
+      case '4': navigate('/scan'); break;
+      case '5': navigate('/review'); break;
+    }
+  };
+
   return (
     <Layout className="app">
-      <Header className="header">
+      <Sider
+        collapsible
+        collapsed={collapsed}
+        onCollapse={setCollapsed}
+        width={180}
+        collapsedWidth={56}
+        className="sider"
+        trigger={null}
+      >
         <div className="logo">
-          <h1>OpenAssetGraph</h1>
+          {collapsed ? <span className="logo-icon">O</span> : <span>OpenAssetGraph</span>}
         </div>
-      </Header>
+        <Menu
+          mode="inline"
+          selectedKeys={[getSelectedKey()]}
+          items={menuItems}
+          onClick={({ key }) => handleMenuClick(key)}
+        />
+      </Sider>
       <Layout>
-        <Sider width={200} className="sider">
-          <Menu
-            mode="inline"
-            selectedKeys={[getSelectedKey()]}
-            style={{ height: '100%', borderRight: 0 }}
-            onClick={({ key }) => {
-              switch (key) {
-                case '1': navigate('/'); break;
-                case '2': navigate('/topology'); break;
-                case '3': navigate('/chat'); break;
-                case '4': navigate('/scan'); break;
-                case '5': navigate('/review'); break;
-              }
-            }}
-          >
-            <Menu.Item key="1" icon={<HomeOutlined />}>
-              Home
-            </Menu.Item>
-            <Menu.Item key="2" icon={<ApartmentOutlined />}>
-              Topology
-            </Menu.Item>
-            <Menu.Item key="3" icon={<MessageOutlined />}>
-              AI Chat
-            </Menu.Item>
-            <Menu.Item key="4" icon={<ScanOutlined />}>
-              Scan Project
-            </Menu.Item>
-            <Menu.Item key="5" icon={<FileSearchOutlined />}>
-              Review
-            </Menu.Item>
-          </Menu>
-        </Sider>
-        <Layout className="content-layout">
-          <Content className="content">
-            <Routes>
-              <Route path="/" element={<HomePage />} />
-              <Route path="/topology" element={<TopologyPage />} />
-              <Route path="/chat" element={<ChatPage />} />
-              <Route path="/scan" element={<ScanPage />} />
-              <Route path="/review" element={<ReviewPage />} />
-            </Routes>
-          </Content>
-        </Layout>
+        <Header className="header">
+          <Button
+            type="text"
+            icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+            onClick={() => setCollapsed(!collapsed)}
+            className="collapse-btn"
+          />
+          <div className="header-title">
+            {menuItems.find(item => item.key === getSelectedKey())?.label || 'Home'}
+          </div>
+        </Header>
+        <Content className="content">
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/topology" element={<TopologyPage />} />
+            <Route path="/chat" element={<ChatPage />} />
+            <Route path="/scan" element={<ScanPage />} />
+            <Route path="/review" element={<ReviewPage />} />
+          </Routes>
+        </Content>
       </Layout>
     </Layout>
   );
 };
 
 const HomePage: React.FC = () => (
-  <div style={{ padding: 24 }}>
-    <h2>Welcome to OpenAssetGraph</h2>
-    <p>AI-Native Digital Twin for Enterprise Software</p>
-    <div style={{ marginTop: 24 }}>
-      <h3>Features</h3>
-      <ul>
-        <li><strong>Topology Visualization</strong> - View and interact with your enterprise asset topology</li>
-        <li><strong>AI Chat</strong> - Interact with your assets using natural language</li>
-        <li><strong>Project Scanner</strong> - Import architecture from GitHub repositories</li>
-        <li><strong>Architecture Review</strong> - Review and analyze architectural proposals</li>
-      </ul>
+  <div className="home-page">
+    <div className="home-hero">
+      <h1>OpenAssetGraph</h1>
+      <p className="home-subtitle">AI-Native Digital Twin for Enterprise Software Architecture</p>
     </div>
-    <div style={{ marginTop: 24 }}>
-      <h3>Quick Start</h3>
-      <ol>
-        <li>Go to <strong>Scan Project</strong> to import a GitHub repository</li>
-        <li>View the topology in <strong>Topology</strong> page</li>
-        <li>Ask questions using <strong>AI Chat</strong></li>
-      </ol>
+    
+    <div className="home-features">
+      <div className="feature-card" onClick={() => window.location.href = '/topology'}>
+        <div className="feature-icon topology-icon"></div>
+        <h3>Topology Visualization</h3>
+        <p>Interactive graph visualization of your enterprise architecture</p>
+      </div>
+      
+      <div className="feature-card" onClick={() => window.location.href = '/chat'}>
+        <div className="feature-icon chat-icon"></div>
+        <h3>AI Chat</h3>
+        <p>Ask questions about your architecture in natural language</p>
+      </div>
+      
+      <div className="feature-card" onClick={() => window.location.href = '/scan'}>
+        <div className="feature-icon scan-icon"></div>
+        <h3>Project Scanner</h3>
+        <p>Import architecture from GitHub repositories</p>
+      </div>
+      
+      <div className="feature-card" onClick={() => window.location.href = '/review'}>
+        <div className="feature-icon review-icon"></div>
+        <h3>Architecture Review</h3>
+        <p>AI-assisted review of architectural proposals</p>
+      </div>
+    </div>
+
+    <div className="home-steps">
+      <h2>Quick Start</h2>
+      <div className="steps-list">
+        <div className="step-item">
+          <div className="step-number">1</div>
+          <div className="step-content">
+            <h4>Scan a Project</h4>
+            <p>Import architecture from GitHub or add nodes manually</p>
+          </div>
+        </div>
+        <div className="step-item">
+          <div className="step-number">2</div>
+          <div className="step-content">
+            <h4>Explore Topology</h4>
+            <p>View and interact with your architecture graph</p>
+          </div>
+        </div>
+        <div className="step-item">
+          <div className="step-number">3</div>
+          <div className="step-content">
+            <h4>Ask AI</h4>
+            <p>Get insights about your architecture using natural language</p>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 );
 
 const ReviewPage: React.FC = () => (
-  <div style={{ padding: 24 }}>
-    <h2>Architecture Review</h2>
-    <p>Review and analyze architectural proposals</p>
+  <div className="review-page">
+    <div className="review-header">
+      <h2>Architecture Review</h2>
+      <p>AI-assisted review and analysis of architectural proposals</p>
+    </div>
+    
+    <div className="review-content">
+      <div className="review-card">
+        <h3>Review Types</h3>
+        <div className="review-types">
+          <div className="review-type">
+            <div className="review-type-icon security"></div>
+            <h4>Security Review</h4>
+            <p>Analyze security risks and vulnerabilities</p>
+          </div>
+          <div className="review-type">
+            <div className="review-type-icon performance"></div>
+            <h4>Performance Review</h4>
+            <p>Identify performance bottlenecks</p>
+          </div>
+          <div className="review-type">
+            <div className="review-type-icon cost"></div>
+            <h4>Cost Optimization</h4>
+            <p>Find cost-saving opportunities</p>
+          </div>
+          <div className="review-type">
+            <div className="review-type-icon compliance"></div>
+            <h4>Compliance Check</h4>
+            <p>Verify compliance requirements</p>
+          </div>
+        </div>
+      </div>
+      
+      <div className="review-card">
+        <h3>Getting Started</h3>
+        <p>Configure your OpenAI API key in the backend settings to enable AI-powered architecture reviews.</p>
+        <div className="review-steps">
+          <p>1. Set <code>OPENAI_API_KEY</code> in your environment</p>
+          <p>2. Import your architecture using the Scan page</p>
+          <p>3. Select a review type and start the analysis</p>
+        </div>
+      </div>
+    </div>
   </div>
 );
 
