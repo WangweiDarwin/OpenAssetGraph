@@ -39,6 +39,7 @@ class GraphRAGService:
     async def extract_relevant_context(
         self,
         query: str,
+        projects: list[str] | None = None,
         max_nodes: int = 50,
         max_depth: int = 2
     ) -> GraphContext:
@@ -52,33 +53,49 @@ class GraphRAGService:
             
             nodes = []
             if keywords:
-                nodes = await self._search_nodes_by_keywords(keywords, max_nodes)
+                nodes = await self._search_nodes_by_keywords(keywords, max_nodes, projects)
             
             if len(nodes) < 5:
-                nodes = await self._get_all_nodes(max_nodes)
+                nodes = await self._get_all_nodes(max_nodes, projects)
             
             context.nodes = nodes
             
             if nodes:
                 node_ids = [n["id"] for n in nodes]
-                relationships = await self._get_relationships_for_nodes(node_ids)
+                relationships = await self._get_relationships_for_nodes(node_ids, projects)
                 context.relationships = relationships
             
-            context.subgraph_summary = self._generate_summary(context)
+            context.subgraph_summary = self._generate_summary(context, projects)
             
         finally:
             await self.neo4j_service.close()
         
         return context
     
-    async def _get_all_nodes(self, limit: int = 200) -> list[dict[str, Any]]:
+    async def _get_all_nodes(
+        self,
+        limit: int = 200,
+        projects: list[str] | None = None
+    ) -> list[dict[str, Any]]:
         """Get all nodes from the graph"""
-        query = """
-        MATCH (n)
-        RETURN n.id as id, n.label as label, n.type as type, n.properties as properties
-        LIMIT $limit
-        """
-        result = await self.neo4j_service.execute_query(query, {"limit": limit})
+        if projects:
+            query = """
+            MATCH (n)
+            WHERE n.project IN $projects
+            RETURN n.id as id, n.label as label, n.type as type, n.properties as properties
+            LIMIT $limit
+            """
+            result = await self.neo4j_service.execute_query(
+                query,
+                {"projects": projects, "limit": limit}
+            )
+        else:
+            query = """
+            MATCH (n)
+            RETURN n.id as id, n.label as label, n.type as type, n.properties as properties
+            LIMIT $limit
+            """
+            result = await self.neo4j_service.execute_query(query, {"limit": limit})
         return [dict(record) for record in result]
     
     def _extract_keywords(self, query: str) -> list[str]:
@@ -112,15 +129,24 @@ class GraphRAGService:
     async def _search_nodes_by_keywords(
         self,
         keywords: list[str],
-        limit: int
+        limit: int,
+        projects: list[str] | None = None
     ) -> list[dict[str, Any]]:
         """Search nodes matching keywords"""
         if not keywords:
             return []
         
-        query = """
+        project_filter = ""
+        params: dict[str, Any] = {"search_term": "", "limit": limit}
+        
+        if projects:
+            project_filter = " AND node.project IN $projects"
+            params["projects"] = projects
+        
+        query = f"""
         CALL db.index.fulltext.queryNodes('node_search', $search_term)
         YIELD node, score
+        WHERE 1=1{project_filter}
         RETURN node.id as id, node.label as label, node.type as type, 
                node.properties as properties, score
         ORDER BY score DESC
@@ -128,47 +154,66 @@ class GraphRAGService:
         """
         
         search_term = " OR ".join(keywords)
+        params["search_term"] = search_term
         
         try:
-            result = await self.neo4j_service.execute_query(
-                query,
-                {"search_term": search_term, "limit": limit}
-            )
+            result = await self.neo4j_service.execute_query(query, params)
             return [dict(record) for record in result]
         except Exception:
-            query = """
+            fallback_params: dict[str, Any] = {"keywords": keywords, "limit": limit}
+            fallback_project_filter = ""
+            
+            if projects:
+                fallback_project_filter = " AND n.project IN $projects"
+                fallback_params["projects"] = projects
+            
+            query = f"""
             MATCH (n)
             WHERE any(keyword IN $keywords WHERE 
                 toLower(n.label) CONTAINS toLower(keyword) OR
-                toLower(n.id) CONTAINS toLower(keyword))
+                toLower(n.id) CONTAINS toLower(keyword)){fallback_project_filter}
             RETURN n.id as id, n.label as label, n.type as type, n.properties as properties
             LIMIT $limit
             """
-            result = await self.neo4j_service.execute_query(
-                query,
-                {"keywords": keywords, "limit": limit}
-            )
+            result = await self.neo4j_service.execute_query(query, fallback_params)
             return [dict(record) for record in result]
     
     async def _get_relationships_for_nodes(
         self,
-        node_ids: list[str]
+        node_ids: list[str],
+        projects: list[str] | None = None
     ) -> list[dict[str, Any]]:
         """Get relationships between specified nodes"""
-        query = """
-        MATCH (source)-[r]->(target)
-        WHERE source.id IN $node_ids AND target.id IN $node_ids
-        RETURN source.id as source, target.id as target,
-               type(r) as type, properties(r) as properties
-        """
-        
-        result = await self.neo4j_service.execute_query(
-            query,
-            {"node_ids": node_ids}
-        )
+        if projects:
+            query = """
+            MATCH (source)-[r]->(target)
+            WHERE source.id IN $node_ids AND target.id IN $node_ids
+                  AND source.project IN $projects AND target.project IN $projects
+            RETURN source.id as source, target.id as target,
+                   type(r) as type, properties(r) as properties
+            """
+            result = await self.neo4j_service.execute_query(
+                query,
+                {"node_ids": node_ids, "projects": projects}
+            )
+        else:
+            query = """
+            MATCH (source)-[r]->(target)
+            WHERE source.id IN $node_ids AND target.id IN $node_ids
+            RETURN source.id as source, target.id as target,
+                   type(r) as type, properties(r) as properties
+            """
+            result = await self.neo4j_service.execute_query(
+                query,
+                {"node_ids": node_ids}
+            )
         return [dict(record) for record in result]
     
-    def _generate_summary(self, context: GraphContext) -> str:
+    def _generate_summary(
+        self,
+        context: GraphContext,
+        projects: list[str] | None = None
+    ) -> str:
         """Generate a summary of the graph context"""
         if not context.nodes:
             return "No relevant nodes found in the graph."
@@ -187,6 +232,10 @@ class GraphRAGService:
                 type_examples[node_type].append(label)
         
         summary_parts = [f"拓扑数据摘要：共 {len(context.nodes)} 个节点，{len(context.relationships)} 条关系\n"]
+        
+        if projects:
+            projects_str = ", ".join(projects)
+            summary_parts.append(f"查询项目范围：{projects_str}\n")
         
         summary_parts.append("节点类型分布：")
         for node_type, count in sorted(type_counts.items(), key=lambda x: -x[1]):
@@ -210,11 +259,12 @@ class GraphRAGService:
         self,
         user_query: str,
         conversation_history: Optional[list[dict[str, str]]] = None,
-        context_data: Optional[dict[str, Any]] = None
+        context_data: Optional[dict[str, Any]] = None,
+        projects: list[str] | None = None
     ) -> LLMResponse:
         """Process a chat query with graph context"""
         
-        graph_context = await self.extract_relevant_context(user_query)
+        graph_context = await self.extract_relevant_context(user_query, projects=projects)
         
         messages = []
         
@@ -248,11 +298,12 @@ class GraphRAGService:
         self,
         user_query: str,
         conversation_history: Optional[list[dict[str, str]]] = None,
-        context_data: Optional[dict[str, Any]] = None
+        context_data: Optional[dict[str, Any]] = None,
+        projects: list[str] | None = None
     ):
         """Process a chat query with streaming response"""
         
-        graph_context = await self.extract_relevant_context(user_query)
+        graph_context = await self.extract_relevant_context(user_query, projects=projects)
         
         messages = []
         

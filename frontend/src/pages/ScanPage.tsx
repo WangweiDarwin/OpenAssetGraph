@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, Form, Input, Button, Select, message, Space, Divider, Result, Tabs } from 'antd';
-import { GithubOutlined, ScanOutlined, PlusOutlined, ClearOutlined, CodeOutlined } from '@ant-design/icons';
+import { Card, Form, Input, Button, Select, message, Space, Divider, Result, Tabs, Tag, List, Popconfirm } from 'antd';
+import { GithubOutlined, ScanOutlined, PlusOutlined, ClearOutlined, CodeOutlined, DeleteOutlined, EyeOutlined, ReloadOutlined, FolderOutlined } from '@ant-design/icons';
 import './ScanPage.css';
 
 const { Option } = Select;
@@ -20,9 +20,40 @@ const ScanPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [scannedProjectId, setScannedProjectId] = useState<string | null>(null);
+  const [existingProjects, setExistingProjects] = useState<string[]>([]);
   const [form] = Form.useForm();
   const [manualForm] = Form.useForm();
-  const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8005';
+  const API_BASE = import.meta.env.VITE_API_URL || '';
+
+  useEffect(() => {
+    fetchExistingProjects();
+  }, []);
+
+  const fetchExistingProjects = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/api/projects`);
+      const data = await response.json();
+      setExistingProjects(data.projects || []);
+    } catch (error) {
+      console.error('Failed to fetch projects:', error);
+    }
+  };
+
+  const handleDeleteProject = async (projectName: string) => {
+    try {
+      const response = await fetch(`${API_BASE}/api/scan/project/${projectName}`, {
+        method: 'DELETE',
+      });
+      if (response.ok) {
+        message.success(`项目 "${projectName}" 已删除`);
+        fetchExistingProjects();
+      } else {
+        message.error('删除失败');
+      }
+    } catch (error) {
+      message.error('删除失败');
+    }
+  };
 
   const handleGitHubScan = async (values: any) => {
     setLoading(true);
@@ -230,6 +261,36 @@ const ScanPage: React.FC = () => {
               <Button type="primary" onClick={handleViewTopology} block>View Topology</Button>
             </Space>
           </Card>
+
+          {existingProjects.length > 0 && (
+            <Card className="info-card" title="已扫描项目" size="small" extra={<Button size="small" icon={<ReloadOutlined />} onClick={fetchExistingProjects} />}>
+              <List
+                size="small"
+                dataSource={existingProjects}
+                renderItem={(project) => (
+                  <List.Item
+                    actions={[
+                      <Button 
+                        size="small" 
+                        icon={<EyeOutlined />} 
+                        onClick={() => navigate(`/topology?project=${project}`)}
+                      />,
+                      <Popconfirm
+                        title="确定删除此项目？"
+                        onConfirm={() => handleDeleteProject(project)}
+                        okText="删除"
+                        cancelText="取消"
+                      >
+                        <Button size="small" danger icon={<DeleteOutlined />} />
+                      </Popconfirm>
+                    ]}
+                  >
+                    <Tag color="blue">#{project}</Tag>
+                  </List.Item>
+                )}
+              />
+            </Card>
+          )}
 
           {scanResult && (
             <Card className="result-card" size="small">

@@ -29,7 +29,7 @@ const TopologyPage: React.FC = () => {
   const [currentProject, setCurrentProject] = useState<string>(projectFromUrl || 'default');
   const [drawerVisible, setDrawerVisible] = useState(false);
 
-  const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8005';
+  const API_BASE = import.meta.env.VITE_API_URL || '';
       
 const loadProjects = useCallback(async () => {
     try {

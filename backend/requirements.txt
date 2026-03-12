@@ -10,9 +10,9 @@ redis==5.0.1
 asyncpg==0.29.0
 
 # Code Parsing
-tree-sitter==0.20.4
-tree-sitter-java==0.20.4
-tree-sitter-python==0.20.4
+tree-sitter==0.21.0
+tree-sitter-java==0.21.0
+tree-sitter-python==0.21.0
 
 # LLM
 langchain==0.1.0

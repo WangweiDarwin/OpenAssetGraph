@@ -83,16 +83,19 @@ def extract_repo_info(url: str) -> dict:
     return {"owner": None, "repo": None}
 
 
-async def store_nodes_to_neo4j(service: Neo4jService, nodes: List[dict]) -> int:
+async def store_nodes_to_neo4j(service: Neo4jService, nodes: List[dict], project_name: str = None) -> int:
     """Store nodes to Neo4j and return count of nodes created"""
     graph_nodes = []
     for node in nodes:
         node_type = parse_node_type(node.get("type", "Service"))
+        properties = node.get("properties", {})
+        if project_name:
+            properties["project"] = project_name
         graph_node = GraphNode(
             id=node.get("id"),
             label=node.get("label", node.get("id")),
             type=node_type,
-            properties=node.get("properties", {})
+            properties=properties
         )
         graph_nodes.append(graph_node)
     
@@ -125,6 +128,16 @@ async def scan_github_project(request: GitHubProjectRequest):
     try:
         url_lower = request.repo_url.lower()
         repo_info = extract_repo_info(request.repo_url)
+        
+        project_id = None
+        if "mall" in url_lower or "macrozheng" in url_lower:
+            project_id = "mall"
+        elif "microservices-demo" in url_lower or "googlecloudplatform" in url_lower:
+            project_id = "online-boutique"
+        elif "petclinic" in url_lower:
+            project_id = "petclinic"
+        else:
+            project_id = repo_info.get("repo", "default").lower().replace("-", "_")
         
         neo4j_service = get_neo4j_service()
         await neo4j_service.connect()
@@ -169,19 +182,20 @@ async def scan_github_project(request: GitHubProjectRequest):
                     {"source": "app-main", "target": "app-db", "type": "CALLS"},
                 ]
             
-            nodes_added = await store_nodes_to_neo4j(neo4j_service, nodes)
+            nodes_added = await store_nodes_to_neo4j(neo4j_service, nodes, project_id)
             edges_added = await store_edges_to_neo4j(neo4j_service, edges)
             
-            project_name = "Mall e-commerce" if "mall" in url_lower or "macrozheng" in url_lower else \
-                          "Online Boutique (Google Cloud)" if "microservices-demo" in url_lower or "googlecloudplatform" in url_lower else \
-                          "Spring PetClinic" if "petclinic" in url_lower else \
-                          request.repo_url
+            display_name = "Mall e-commerce" if project_id == "mall" else \
+                          "Online Boutique (Google Cloud)" if project_id == "online-boutique" else \
+                          "Spring PetClinic" if project_id == "petclinic" else \
+                          project_id
             
             return ScanResult(
                 status="success",
                 nodes_added=nodes_added,
                 edges_added=edges_added,
-                message=f"{project_name} loaded successfully"
+                message=f"{display_name} loaded successfully",
+                project_id=project_id
             )
             
         finally:
@@ -262,3 +276,31 @@ async def get_scan_templates():
             "node_types": ["Service", "API", "Database", "FrontendApp", "Component", "Table"],
         },
     ]
+
+
+@router.delete("/project/{project_name}")
+async def delete_project(project_name: str):
+    """Delete a specific project and all its nodes"""
+    try:
+        neo4j_service = get_neo4j_service()
+        await neo4j_service.connect()
+        
+        try:
+            query = """
+            MATCH (n {project: $project_name})
+            DETACH DELETE n
+            RETURN count(n) as deleted_count
+            """
+            result = await neo4j_service.execute_query(query, {"project_name": project_name})
+            deleted_count = result[0]["deleted_count"] if result else 0
+            
+            return {
+                "status": "success",
+                "message": f"项目 '{project_name}' 已删除",
+                "nodes_deleted": deleted_count
+            }
+        finally:
+            await neo4j_service.close()
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

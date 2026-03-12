@@ -10,6 +10,7 @@ import traceback
 from ..services.graph_service import Neo4jService
 from ..services.llm.graph_rag import GraphRAGService
 from ..services.llm import LLMFactory, Message, MessageRole
+from ..services.project_reference import ProjectReferenceParser
 from ..core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -42,6 +43,8 @@ class ChatRequest(BaseModel):
     message: str
     conversation_history: Optional[List[ChatMessage]] = None
     context: Optional[dict] = None
+    project_refs: Optional[List[str]] = None
+    resolved_projects: Optional[List[str]] = None
 
 
 class ChatResponse(BaseModel):
@@ -50,6 +53,7 @@ class ChatResponse(BaseModel):
     model: str
     usage: dict
     context_summary: Optional[str] = None
+    referenced_projects: Optional[List[str]] = None
 
 
 class AnalysisRequest(BaseModel):
@@ -125,12 +129,43 @@ async def chat(request: ChatRequest):
         logger.info(f"Chat request received: {request.message[:50]}...")
         logger.info(f"LLM Provider: {settings.llm_provider}, Model: {settings.llm_model}")
         
+        neo4j_service = Neo4jService(
+            uri=settings.neo4j_uri,
+            user=settings.neo4j_user,
+            password=settings.neo4j_password
+        )
+        await neo4j_service.connect()
+        parser = ProjectReferenceParser(neo4j_service)
+        
+        project_validation = await parser.parse_and_validate(request.message)
+        valid_projects = project_validation["valid"]
+        invalid_projects = project_validation["invalid"]
+        
+        if invalid_projects:
+            available_projects = await parser.get_all_projects()
+            logger.warning(f"Invalid project references: {invalid_projects}")
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "error": "invalid_project_reference",
+                    "invalid_projects": invalid_projects,
+                    "available_projects": available_projects,
+                    "message": f"以下项目引用无效: {', '.join(invalid_projects)}。可用项目: {', '.join(available_projects)}"
+                }
+            )
+        
+        referenced_projects = valid_projects if valid_projects else None
+        logger.info(f"Referenced projects: {referenced_projects}")
+        
         context_summary = None
         graph_context_data = None
         
         try:
             graph_rag_service = get_graph_rag_service()
-            graph_context = await graph_rag_service.extract_relevant_context(request.message)
+            graph_context = await graph_rag_service.extract_relevant_context(
+                request.message,
+                projects=referenced_projects
+            )
             
             if graph_context.nodes:
                 context_summary = graph_context.subgraph_summary
@@ -201,7 +236,8 @@ async def chat(request: ChatRequest):
             response=response.content,
             model=response.model,
             usage=response.usage,
-            context_summary=context_summary
+            context_summary=context_summary,
+            referenced_projects=referenced_projects
         )
         
     except Exception as e:
