@@ -1,18 +1,43 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Spin, message, Select, Button, Space, Input, Tag, Empty, Tooltip, Drawer } from 'antd';
-import { ReloadOutlined, SearchOutlined, ZoomInOutlined, ZoomOutOutlined, FullscreenOutlined, CloseOutlined } from '@ant-design/icons';
+import { Spin, message, Select, Button, Space, Input, Tag, Empty, Tooltip, Drawer, Divider } from 'antd';
+import { ReloadOutlined, SearchOutlined, ZoomInOutlined, ZoomOutOutlined, FullscreenOutlined, CloseOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import { useSearchParams } from 'react-router-dom';
 import TopologyGraph from '../components/TopologyGraph';
-import { topologyApi, TopologyNode, TopologyEdge, TopologyStats } from '../services/api';
+import { topologyApi, TopologyNode, TopologyEdge, TopologyStats, api } from '../services/api';
 import './TopologyPage.css';
 
 const { Option } = Select;
+
+const RECENT_PROJECTS_KEY = 'oag_recent_projects';
+const MAX_RECENT_PROJECTS = 5;
 
 interface Project {
   id: string;
   name: string;
   description: string;
 }
+
+interface RecentProject {
+  id: string;
+  name: string;
+  timestamp: number;
+}
+
+const getRecentProjects = (): RecentProject[] => {
+  try {
+    const stored = localStorage.getItem(RECENT_PROJECTS_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+};
+
+const saveRecentProject = (projectId: string, projectName: string) => {
+  const recent = getRecentProjects();
+  const filtered = recent.filter(p => p.id !== projectId);
+  const updated = [{ id: projectId, name: projectName, timestamp: Date.now() }, ...filtered].slice(0, MAX_RECENT_PROJECTS);
+  localStorage.setItem(RECENT_PROJECTS_KEY, JSON.stringify(updated));
+};
 
 const TopologyPage: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -28,13 +53,12 @@ const TopologyPage: React.FC = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [currentProject, setCurrentProject] = useState<string>(projectFromUrl || 'default');
   const [drawerVisible, setDrawerVisible] = useState(false);
-
-  const API_BASE = import.meta.env.VITE_API_URL || '';
+  const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [recentProjects, setRecentProjects] = useState<RecentProject[]>([]);
       
 const loadProjects = useCallback(async () => {
     try {
-      const response = await fetch(`${API_BASE}/api/topology/projects`);
-      const data = await response.json();
+      const data = await topologyApi.getProjects();
       setProjects(data);
     } catch (error) {
       console.error('Failed to load projects:', error);
@@ -43,18 +67,18 @@ const loadProjects = useCallback(async () => {
 
   const loadTopology = useCallback(async (projectId?: string) => {
     setLoading(true);
+    setConnectionError(null);
     try {
       const projectToLoad = projectId || currentProject;
       if (projectToLoad && projectToLoad !== 'default') {
-        await fetch(`${API_BASE}/api/topology/projects/${projectToLoad}/switch`, {
-          method: 'POST',
-        });
+        await topologyApi.switchProject(projectToLoad);
       }
       const data = await topologyApi.getTopology(undefined, 200);
       setNodes(data.nodes);
       setEdges(data.edges);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to load topology:', error);
+      setConnectionError(error?.message || 'Failed to load topology data');
       message.error('Failed to load topology data');
     } finally {
       setLoading(false);
@@ -72,6 +96,7 @@ const loadProjects = useCallback(async () => {
 
   useEffect(() => {
     loadProjects();
+    setRecentProjects(getRecentProjects());
   }, [loadProjects]);
 
   useEffect(() => {
@@ -79,6 +104,11 @@ const loadProjects = useCallback(async () => {
       setCurrentProject(projectFromUrl);
       loadTopology(projectFromUrl);
       loadStats();
+      const project = projects.find(p => p.id === projectFromUrl);
+      if (project) {
+        saveRecentProject(projectFromUrl, project.name);
+        setRecentProjects(getRecentProjects());
+      }
     } else {
       loadTopology();
       loadStats();
@@ -88,15 +118,20 @@ const loadProjects = useCallback(async () => {
   const handleProjectChange = async (projectId: string) => {
     setLoading(true);
     try {
-      await fetch(`${API_BASE}/api/topology/projects/${projectId}/switch`, {
-        method: 'POST',
-      });
+      await topologyApi.switchProject(projectId);
       setCurrentProject(projectId);
       const data = await topologyApi.getTopology(undefined, 200);
       setNodes(data.nodes);
       setEdges(data.edges);
       const statsData = await topologyApi.getStats();
       setStats(statsData);
+      
+      const project = projects.find(p => p.id === projectId);
+      if (project) {
+        saveRecentProject(projectId, project.name);
+        setRecentProjects(getRecentProjects());
+      }
+      
       message.success(`Switched to: ${projectId}`);
     } catch (error) {
       console.error('Failed to switch project:', error);
@@ -222,12 +257,22 @@ const loadProjects = useCallback(async () => {
           <Select
             value={currentProject}
             onChange={handleProjectChange}
-            style={{ width: 160 }}
+            style={{ width: 180 }}
             size="small"
+            placeholder="Select project"
           >
-            {projects.map(p => (
-              <Option key={p.id} value={p.id}>{p.name}</Option>
-            ))}
+            {recentProjects.length > 0 && (
+              <Select.OptGroup label={<span><ClockCircleOutlined /> Recent</span>}>
+                {recentProjects.map(p => (
+                  <Option key={p.id} value={p.id}>{p.name}</Option>
+                ))}
+              </Select.OptGroup>
+            )}
+            <Select.OptGroup label="All Projects">
+              {projects.filter(p => !recentProjects.find(r => r.id === p.id)).map(p => (
+                <Option key={p.id} value={p.id}>{p.name}</Option>
+              ))}
+            </Select.OptGroup>
           </Select>
           <Button icon={<ReloadOutlined />} onClick={handleRefresh} size="small">
             Refresh
@@ -236,7 +281,19 @@ const loadProjects = useCallback(async () => {
       </div>
 
       <div className="topology-content">
-        {nodes.length === 0 ? (
+        {connectionError ? (
+          <div className="error-container">
+            <Empty 
+              description={
+                <div>
+                  <p>Connection Error: {connectionError}</p>
+                  <p>Please check if the backend service is running on port 8000</p>
+                  <Button type="primary" onClick={handleRefresh}>Retry</Button>
+                </div>
+              } 
+            />
+          </div>
+        ) : nodes.length === 0 ? (
           <div className="empty-topology">
             <Empty description="No topology data. Scan a project to get started." />
           </div>

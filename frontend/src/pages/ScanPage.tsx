@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, Form, Input, Button, Select, message, Space, Divider, Result, Tabs, Tag, List, Popconfirm } from 'antd';
 import { GithubOutlined, ScanOutlined, PlusOutlined, ClearOutlined, CodeOutlined, DeleteOutlined, EyeOutlined, ReloadOutlined, FolderOutlined } from '@ant-design/icons';
+import { scanApi, api } from '../services/api';
 import './ScanPage.css';
 
 const { Option } = Select;
@@ -23,33 +24,28 @@ const ScanPage: React.FC = () => {
   const [existingProjects, setExistingProjects] = useState<string[]>([]);
   const [form] = Form.useForm();
   const [manualForm] = Form.useForm();
-  const API_BASE = import.meta.env.VITE_API_URL || '';
+  const [connectionError, setConnectionError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchExistingProjects();
   }, []);
 
   const fetchExistingProjects = async () => {
+    setConnectionError(null);
     try {
-      const response = await fetch(`${API_BASE}/api/projects`);
-      const data = await response.json();
+      const data = await api.getProjects();
       setExistingProjects(data.projects || []);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to fetch projects:', error);
+      setConnectionError(error?.message || 'Failed to connect to backend');
     }
   };
 
   const handleDeleteProject = async (projectName: string) => {
     try {
-      const response = await fetch(`${API_BASE}/api/scan/project/${projectName}`, {
-        method: 'DELETE',
-      });
-      if (response.ok) {
-        message.success(`项目 "${projectName}" 已删除`);
-        fetchExistingProjects();
-      } else {
-        message.error('删除失败');
-      }
+      const result = await scanApi.deleteProject(projectName);
+      message.success(result.message || `项目 "${projectName}" 已删除`);
+      fetchExistingProjects();
     } catch (error) {
       message.error('删除失败');
     }
@@ -60,26 +56,26 @@ const ScanPage: React.FC = () => {
     setScanResult(null);
     setScannedProjectId(null);
     try {
-      const response = await fetch(`${API_BASE}/api/scan/github`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(values),
-      });
-      const data = await response.json();
+      const data = await scanApi.scanGitHub(values.repo_url, values.branch, values.scan_type);
       setScanResult(data);
       
-      const urlLower = values.repo_url.toLowerCase();
-      if (urlLower.includes('microservices-demo') || urlLower.includes('googlecloudplatform')) {
-        setScannedProjectId('online-boutique');
-      } else if (urlLower.includes('mall') || urlLower.includes('macrozheng')) {
-        setScannedProjectId('mall');
-      } else if (urlLower.includes('petclinic')) {
-        setScannedProjectId('petclinic');
+      if (data.project_id) {
+        setScannedProjectId(data.project_id);
+      } else {
+        const urlLower = values.repo_url.toLowerCase();
+        if (urlLower.includes('microservices-demo') || urlLower.includes('googlecloudplatform')) {
+          setScannedProjectId('online-boutique');
+        } else if (urlLower.includes('mall') || urlLower.includes('macrozheng')) {
+          setScannedProjectId('mall');
+        } else if (urlLower.includes('petclinic')) {
+          setScannedProjectId('petclinic');
+        }
       }
       
       message.success('Scan completed!');
-    } catch (error) {
-      message.error('Scan failed');
+      fetchExistingProjects();
+    } catch (error: any) {
+      message.error(error?.message || 'Scan failed');
     } finally {
       setLoading(false);
     }
@@ -89,18 +85,14 @@ const ScanPage: React.FC = () => {
     setLoading(true);
     try {
       const nodes = JSON.parse(values.nodes || '[]');
-      const edges = values.edges ? JSON.parse(values.edges) : null;
+      const edges = values.edges ? JSON.parse(values.edges) : undefined;
       
-      const response = await fetch(`${API_BASE}/api/scan/manual`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nodes, edges }),
-      });
-      const data = await response.json();
+      const data = await scanApi.addManualNodes(nodes, edges);
       setScanResult(data);
       message.success('Nodes added!');
-    } catch (error) {
-      message.error('Failed to add nodes');
+      fetchExistingProjects();
+    } catch (error: any) {
+      message.error(error?.message || 'Failed to add nodes');
     } finally {
       setLoading(false);
     }
@@ -108,10 +100,11 @@ const ScanPage: React.FC = () => {
 
   const handleClear = async () => {
     try {
-      await fetch(`${API_BASE}/api/scan/clear`, { method: 'POST' });
+      await scanApi.clearTopology();
       message.success('Topology cleared');
       setScanResult(null);
       setScannedProjectId(null);
+      fetchExistingProjects();
     } catch (error) {
       message.error('Failed to clear');
     }
@@ -166,6 +159,17 @@ const ScanPage: React.FC = () => {
         <h2>Project Scanner</h2>
         <p style={{ color: 'var(--text-secondary)', margin: 0 }}>Import architecture from GitHub or add nodes manually</p>
       </div>
+
+      {connectionError && (
+        <Card className="error-card" style={{ marginBottom: 16 }}>
+          <Result
+            status="error"
+            title="Connection Error"
+            subTitle={`Cannot connect to backend: ${connectionError}. Please check if the backend service is running on port 8000.`}
+            extra={<Button type="primary" onClick={fetchExistingProjects}>Retry</Button>}
+          />
+        </Card>
+      )}
 
       <div className="scan-content">
         <div className="scan-main">

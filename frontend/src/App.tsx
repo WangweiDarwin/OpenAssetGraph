@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { Layout, Menu, Button } from 'antd';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
-import { HomeOutlined, ApartmentOutlined, MessageOutlined, FileSearchOutlined, ScanOutlined, MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons';
+import { HomeOutlined, ApartmentOutlined, MessageOutlined, FileSearchOutlined, ScanOutlined, MenuFoldOutlined, MenuUnfoldOutlined, FolderOutlined } from '@ant-design/icons';
 import TopologyPage from './pages/TopologyPage';
 import ChatPage from './pages/ChatPage';
 import ScanPage from './pages/ScanPage';
+import ProjectPage from './pages/ProjectPage';
 import './App.css';
 
 const { Header, Sider, Content } = Layout;
@@ -20,7 +21,8 @@ const App: React.FC = () => {
       case '/topology': return '2';
       case '/chat': return '3';
       case '/scan': return '4';
-      case '/review': return '5';
+      case '/projects': return '5';
+      case '/review': return '6';
       default: return '1';
     }
   };
@@ -30,7 +32,8 @@ const App: React.FC = () => {
     { key: '2', icon: <ApartmentOutlined />, label: 'Topology' },
     { key: '3', icon: <MessageOutlined />, label: 'AI Chat' },
     { key: '4', icon: <ScanOutlined />, label: 'Scan' },
-    { key: '5', icon: <FileSearchOutlined />, label: 'Review' },
+    { key: '5', icon: <FolderOutlined />, label: 'Projects' },
+    { key: '6', icon: <FileSearchOutlined />, label: 'Review' },
   ];
 
   const handleMenuClick = (key: string) => {
@@ -39,7 +42,8 @@ const App: React.FC = () => {
       case '2': navigate('/topology'); break;
       case '3': navigate('/chat'); break;
       case '4': navigate('/scan'); break;
-      case '5': navigate('/review'); break;
+      case '5': navigate('/projects'); break;
+      case '6': navigate('/review'); break;
     }
   };
 
@@ -82,6 +86,7 @@ const App: React.FC = () => {
             <Route path="/topology" element={<TopologyPage />} />
             <Route path="/chat" element={<ChatPage />} />
             <Route path="/scan" element={<ScanPage />} />
+            <Route path="/projects" element={<ProjectPage />} />
             <Route path="/review" element={<ReviewPage />} />
           </Routes>
         </Content>
@@ -114,6 +119,12 @@ const HomePage: React.FC = () => (
         <div className="feature-icon scan-icon"></div>
         <h3>Project Scanner</h3>
         <p>Import architecture from GitHub repositories</p>
+      </div>
+      
+      <div className="feature-card" onClick={() => window.location.href = '/projects'}>
+        <div className="feature-icon projects-icon"></div>
+        <h3>Projects</h3>
+        <p>Manage your scanned project architecture assets</p>
       </div>
       
       <div className="feature-card" onClick={() => window.location.href = '/review'}>

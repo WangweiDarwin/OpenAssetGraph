@@ -7,8 +7,10 @@ OpenAssetGraph is an intelligent platform that combines graph database technolog
 ## Features
 
 - **Topology Visualization** - Interactive graph visualization showing databases, services, APIs, and applications with light tech-style UI
-- **AI-Powered Analysis** - Ask questions about your architecture in natural language
+- **AI-Powered Analysis** - Ask questions about your architecture in natural language with project context
 - **Project Scanner** - Import architecture from GitHub repositories with auto-recognition or add nodes manually
+- **Project Management** - Persistent storage and management of scanned project architecture assets
+- **Recent Projects** - Quick access to recently viewed projects in topology navigation
 - **Dependency Tracking** - Understand how components connect and identify risks
 - **Architecture Review** - AI-assisted evaluation of architectural proposals
 - **Collapsible Sidebar** - Clean navigation with expandable menu
@@ -24,15 +26,24 @@ OpenAssetGraph is an intelligent platform that combines graph database technolog
 
 ## Quick Start
 
+### Prerequisites
+
+- Python 3.11+
+- Node.js 18+
+- Neo4j 5.x (via Docker or local installation)
+
 ### Option 1: Local Development
 
 ```bash
-# Backend
+# 1. Start Neo4j (Docker)
+docker-compose up -d neo4j
+
+# 2. Backend (new terminal)
 cd backend
 pip install -r requirements.txt
-python -m uvicorn app.main:app --port 8002
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
 
-# Frontend (new terminal)
+# 3. Frontend (new terminal)
 cd frontend
 npm install
 npm run dev
@@ -52,11 +63,22 @@ Access: http://localhost:3000
 
 The application includes built-in demo data:
 
-- **Demo Project** - Sample enterprise architecture
 - **Mall E-Commerce** - Spring Boot microservices (macrozheng/mall)
 - **Online Boutique** - Google Cloud microservices demo
+- **Spring PetClinic** - Spring Boot demo application
 
 Scan a GitHub repository URL or switch between projects in the Topology page.
+
+## Navigation
+
+| Page | Description |
+|------|-------------|
+| **Home** | Dashboard with quick access to all features |
+| **Topology** | Interactive graph visualization with project switching |
+| **AI Chat** | Natural language queries about your architecture |
+| **Scan** | Import architecture from GitHub or add manually |
+| **Projects** | Manage scanned project architecture assets |
+| **Review** | AI-assisted architecture review |
 
 ## API Endpoints
 
@@ -64,10 +86,13 @@ Scan a GitHub repository URL or switch between projects in the Topology page.
 |----------|-------------|
 | `GET /api/topology` | Get full topology |
 | `GET /api/topology/search?q=query` | Search nodes |
+| `GET /api/projects` | List all projects |
+| `GET /api/projects/{name}/stats` | Get project statistics |
 | `POST /api/scan/github` | Scan GitHub repository |
-| `POST /api/chat` | AI chat |
+| `DELETE /api/scan/project/{name}` | Delete a project |
+| `POST /api/chat` | AI chat with project context |
 
-Full API docs: http://localhost:8002/docs
+Full API docs: http://localhost:8000/docs
 
 ## Configuration
 
@@ -86,7 +111,7 @@ OPENAI_API_KEY=your-openai-key    # Optional fallback
 # Database
 NEO4J_URI=bolt://localhost:7687
 NEO4J_USER=neo4j
-NEO4J_PASSWORD=password
+NEO4J_PASSWORD=password123
 ```
 
 ### Supported LLM Providers
@@ -98,6 +123,15 @@ NEO4J_PASSWORD=password
 | **DeepSeek** | deepseek-chat, deepseek-coder | [platform.deepseek.com](https://platform.deepseek.com/) |
 | **OpenAI** | gpt-4, gpt-4-turbo, gpt-4o | [platform.openai.com](https://platform.openai.com/) |
 
+## Project Reference in AI Chat
+
+Use `#project-name#` syntax to reference specific projects in AI Chat:
+
+```
+分析 #mall# 的架构
+比较 #mall# 和 #online-boutique# 的区别
+```
+
 ## Project Structure
 
 ```
@@ -106,13 +140,15 @@ OAG/
 │   ├── app/
 │   │   ├── api/           # API routes
 │   │   ├── services/      # Business logic
+│   │   ├── models/        # Data models
 │   │   └── main.py
 │   └── requirements.txt
 ├── frontend/
 │   ├── src/
 │   │   ├── components/    # React components
 │   │   ├── pages/         # Page components
-│   │   └── services/      # API services
+│   │   ├── services/      # API services
+│   │   └── App.tsx
 │   └── package.json
 ├── docker-compose.yml
 └── README.md
@@ -125,6 +161,7 @@ OAG/
 - Analyze impact of proposed changes
 - Enable architecture knowledge sharing
 - Support architecture decision making with AI insights
+- Track and manage multiple project architectures
 
 ## Contributing
 

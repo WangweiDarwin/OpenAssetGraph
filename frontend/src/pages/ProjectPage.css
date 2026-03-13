@@ -1,0 +1,54 @@
+.project-page {
+  padding: 24px;
+  height: 100%;
+  overflow: auto;
+}
+
+.project-page.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
+.project-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.project-header h2 {
+  margin: 0;
+}
+
+.project-card {
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.project-card .ant-table {
+  background: transparent;
+}
+
+.project-card .ant-table-thead > tr > th {
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.project-card .ant-table-tbody > tr > td {
+  border-bottom: 1px solid var(--border-color);
+}
+
+.project-card .ant-table-tbody > tr:hover > td {
+  background: var(--bg-hover);
+}
+
+.project-card .ant-empty {
+  padding: 48px 0;
+}
+
+.project-card .ant-btn-link {
+  padding: 0;
+}

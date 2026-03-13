@@ -1,5 +1,3 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || '';
-
 export interface TopologyNode {
   id: string;
   label: string;
@@ -58,6 +56,27 @@ export interface TopologyStats {
   node_types: Record<string, number>;
 }
 
+export interface ScanResult {
+  status: string;
+  nodes_added: number;
+  edges_added: number;
+  message: string;
+  project_id?: string;
+}
+
+export interface ChatMessage {
+  role: string;
+  content: string;
+}
+
+export interface ChatResponse {
+  response: string;
+  model: string;
+  usage: Record<string, any>;
+  context_summary?: string;
+  referenced_projects?: string[];
+}
+
 class ApiError extends Error {
   constructor(public status: number, message: string) {
     super(message);
@@ -66,9 +85,7 @@ class ApiError extends Error {
 }
 
 async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> {
-  const url = `${API_BASE_URL}${endpoint}`;
-  
-  const response = await fetch(url, {
+  const response = await fetch(endpoint, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -84,6 +101,39 @@ async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> 
   return response.json();
 }
 
+export const api = {
+  async checkHealth(): Promise<{ status: string }> {
+    try {
+      const response = await fetch('/api/topology/stats');
+      if (response.ok) {
+        return { status: 'ok' };
+      }
+      return { status: 'error' };
+    } catch {
+      return { status: 'error' };
+    }
+  },
+
+  async getProjects(): Promise<{ projects: string[] }> {
+    return fetchApi<{ projects: string[] }>('/api/projects');
+  },
+
+  async getProjectStats(projectName: string): Promise<{
+    node_count: number;
+    edge_count: number;
+    last_scanned: string;
+    node_types: Record<string, number>;
+  }> {
+    return fetchApi(`/api/projects/${projectName}/stats`);
+  },
+
+  async deleteProject(projectName: string): Promise<{ status: string; message: string }> {
+    return fetchApi<{ status: string; message: string }>(`/api/scan/project/${projectName}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
 export const topologyApi = {
   async getTopology(nodeTypes?: string[], limit: number = 100): Promise<TopologyData> {
     const params = new URLSearchParams();
@@ -94,6 +144,14 @@ export const topologyApi = {
     }
     
     return fetchApi<TopologyData>(`/api/topology?${params.toString()}`);
+  },
+
+  async getProjects(): Promise<any[]> {
+    return fetchApi<any[]>('/api/topology/projects');
+  },
+
+  async switchProject(projectId: string): Promise<void> {
+    await fetchApi(`/api/topology/projects/${projectId}/switch`, { method: 'POST' });
   },
 
   async searchNodes(query: string, nodeTypes?: string[], limit: number = 50): Promise<SearchResponse> {
@@ -142,6 +200,28 @@ export const topologyApi = {
 };
 
 export const scanApi = {
+  async scanGitHub(repoUrl: string, branch: string = 'main', scanType: string = 'architecture'): Promise<ScanResult> {
+    return fetchApi<ScanResult>('/api/scan/github', {
+      method: 'POST',
+      body: JSON.stringify({ repo_url: repoUrl, branch, scan_type: scanType }),
+    });
+  },
+
+  async addManualNodes(nodes: any[], edges?: any[]): Promise<ScanResult> {
+    return fetchApi<ScanResult>('/api/scan/manual', {
+      method: 'POST',
+      body: JSON.stringify({ nodes, edges }),
+    });
+  },
+
+  async clearTopology(): Promise<{ status: string; message: string }> {
+    return fetchApi<{ status: string; message: string }>('/api/scan/clear', { method: 'POST' });
+  },
+
+  async deleteProject(projectName: string): Promise<{ status: string; message: string; nodes_deleted: number }> {
+    return fetchApi(`/api/scan/project/${projectName}`, { method: 'DELETE' });
+  },
+
   async scanDatabase(config: {
     host: string;
     port: number;
@@ -180,6 +260,22 @@ export const scanApi = {
     created_at: string;
   }>> {
     return fetchApi('/api/scan/history');
+  },
+};
+
+export const chatApi = {
+  async sendMessage(message: string, conversationHistory?: ChatMessage[]): Promise<ChatResponse> {
+    return fetchApi<ChatResponse>('/api/chat', {
+      method: 'POST',
+      body: JSON.stringify({
+        message,
+        conversation_history: conversationHistory || [],
+      }),
+    });
+  },
+
+  async testConnection(): Promise<any> {
+    return fetchApi('/api/chat/test');
   },
 };
 
