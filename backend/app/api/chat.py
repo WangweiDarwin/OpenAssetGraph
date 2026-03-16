@@ -170,8 +170,8 @@ async def chat(request: ChatRequest):
             if graph_context.nodes:
                 context_summary = graph_context.subgraph_summary
                 graph_context_data = {
-                    "nodes": graph_context.nodes[:30],
-                    "relationships": graph_context.relationships[:30],
+                    "nodes": graph_context.nodes,
+                    "relationships": graph_context.relationships,
                     "summary": graph_context.subgraph_summary
                 }
                 logger.info(f"Graph context extracted: {len(graph_context.nodes)} nodes, {len(graph_context.relationships)} relationships")
@@ -184,10 +184,27 @@ async def chat(request: ChatRequest):
         logger.info("LLM service created successfully")
         
         if graph_context_data:
-            context_str = json.dumps(graph_context_data, indent=2, ensure_ascii=False, default=str)[:6000]
+            node_count = len(graph_context_data.get("nodes", []))
+            edge_count = len(graph_context_data.get("relationships", []))
+            
+            type_counts = {}
+            for n in graph_context_data.get("nodes", []):
+                t = n.get("type", "Unknown")
+                type_counts[t] = type_counts.get(t, 0) + 1
+            
+            type_summary = ", ".join([f"{t}: {c}个" for t, c in sorted(type_counts.items(), key=lambda x: -x[1])])
+            
+            context_str = json.dumps(graph_context_data, indent=2, ensure_ascii=False, default=str)[:100000]
             system_prompt = f"""你是 OpenAssetGraph 智能助手，一个专注于企业软件架构分析的 AI 助手。
 
-当前项目的拓扑数据如下：
+【重要数据统计 - 必须准确报告】
+- 总节点数: {node_count} 个
+- 总关系数: {edge_count} 条
+- 节点类型分布: {type_summary}
+
+⚠️ 关键要求：你的分析结果第一句话必须是"根据拓扑数据，该项目共有 {node_count} 个节点"。这个数字 {node_count} 是数据库中的实际数量，绝对不能更改或减少！
+
+当前项目的完整拓扑数据如下：
 {context_str}
 
 你的核心能力包括：
@@ -200,8 +217,7 @@ async def chat(request: ChatRequest):
 - 必须基于上述拓扑数据回答问题，不要编造不存在的信息
 - 如果拓扑数据中包含具体的服务名称、数据库类型等，请准确引用
 - 清晰解释分析逻辑和推理过程
-- 使用中文回答，保持专业和友好
-- 当数据不完整时，诚实说明局限性"""
+- 使用中文回答，保持专业和友好"""
         else:
             system_prompt = """你是 OpenAssetGraph 智能助手，一个专注于企业软件架构分析的 AI 助手。
 

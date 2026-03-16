@@ -21,7 +21,6 @@ const ProjectPage: React.FC = () => {
   const [projects, setProjects] = useState<ProjectInfo[]>([]);
   const [selectedProject, setSelectedProject] = useState<ProjectInfo | null>(null);
   const [detailVisible, setDetailVisible] = useState(false);
-  const [detailLoading, setDetailLoading] = useState(false);
 
   useEffect(() => {
     loadProjects();

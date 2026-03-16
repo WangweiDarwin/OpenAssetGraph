@@ -2,7 +2,7 @@ import React from 'react';
 import { Card, Descriptions, Tag, Table, Empty, Typography, Divider } from 'antd';
 import { DatabaseOutlined, TableOutlined, ColumnHeightOutlined, ApiOutlined, DesktopOutlined, AppstoreOutlined, SettingOutlined } from '@ant-design/icons';
 
-const { Text, Title } = Typography;
+const { Text } = Typography;
 
 interface TopologyNode {
   id: string;
@@ -13,7 +13,6 @@ interface TopologyNode {
 
 interface NodeDetailPanelProps {
   node: TopologyNode | null;
-  onClose?: () => void;
 }
 
 const typeIconMap: Record<string, React.ReactNode> = {
@@ -36,7 +35,7 @@ const typeColorMap: Record<string, string> = {
   Component: 'orange',
 };
 
-const NodeDetailPanel: React.FC<NodeDetailPanelProps> = ({ node, onClose }) => {
+const NodeDetailPanel: React.FC<NodeDetailPanelProps> = ({ node }) => {
   if (!node) {
     return (
       <Card 

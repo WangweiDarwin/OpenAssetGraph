@@ -13,6 +13,14 @@ class NodeType(str, Enum):
     API = "API"
     FRONTEND_APP = "FrontendApp"
     COMPONENT = "Component"
+    LIBRARY = "Library"
+    CACHE = "Cache"
+    MESSAGE_QUEUE = "MessageQueue"
+    STORAGE = "Storage"
+    MODEL = "Model"
+    DATASET = "Dataset"
+    WORKFLOW = "Workflow"
+    CONFIGURATION = "Configuration"
 
 
 class RelationshipType(str, Enum):

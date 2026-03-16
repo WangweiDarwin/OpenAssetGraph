@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Input, Select, Button, Card, List, Tag, Space, Typography, Empty, Spin } from 'antd';
-import { SearchOutlined, ReloadOutlined, FilterOutlined } from '@ant-design/icons';
+import { SearchOutlined, ReloadOutlined } from '@ant-design/icons';
 
 const { Search } = Input;
 const { Option } = Select;
-const { Text, Title } = Typography;
+const { Text } = Typography;
 
 interface TopologyNode {
   id: string;
@@ -189,7 +189,6 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
               <List.Item
                 style={{ cursor: 'pointer', padding: '8px 12px' }}
                 onClick={() => onNodeSelect(result.node)}
-                hoverable
               >
                 <List.Item.Meta
                   title={

@@ -59,3 +59,11 @@ OAG
 node-v20.11.0-win-x64/
 node.zip
 node.msi
+
+Test files
+backend/test_*.py
+backend/check_*.py
+backend/diagnose.py
+
+Trae specs
+.trae/

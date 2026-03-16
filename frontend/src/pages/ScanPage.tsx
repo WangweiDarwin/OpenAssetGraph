@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, Form, Input, Button, Select, message, Space, Divider, Result, Tabs, Tag, List, Popconfirm } from 'antd';
-import { GithubOutlined, ScanOutlined, PlusOutlined, ClearOutlined, CodeOutlined, DeleteOutlined, EyeOutlined, ReloadOutlined, FolderOutlined } from '@ant-design/icons';
+import { GithubOutlined, ScanOutlined, PlusOutlined, ClearOutlined, CodeOutlined, DeleteOutlined, EyeOutlined, ReloadOutlined } from '@ant-design/icons';
 import { scanApi, api } from '../services/api';
 import './ScanPage.css';
 
@@ -156,17 +156,17 @@ const ScanPage: React.FC = () => {
   return (
     <div className="scan-page">
       <div className="scan-header">
-        <h2>Project Scanner</h2>
-        <p style={{ color: 'var(--text-secondary)', margin: 0 }}>Import architecture from GitHub or add nodes manually</p>
+        <h2>项目扫描</h2>
+        <p style={{ color: 'var(--text-secondary)', margin: 0 }}>从 GitHub 导入架构或手动添加节点</p>
       </div>
 
       {connectionError && (
         <Card className="error-card" style={{ marginBottom: 16 }}>
           <Result
             status="error"
-            title="Connection Error"
-            subTitle={`Cannot connect to backend: ${connectionError}. Please check if the backend service is running on port 8000.`}
-            extra={<Button type="primary" onClick={fetchExistingProjects}>Retry</Button>}
+            title="连接错误"
+            subTitle={`无法连接到后端: ${connectionError}。请检查后端服务是否在 8000 端口运行。`}
+            extra={<Button type="primary" onClick={fetchExistingProjects}>重试</Button>}
           />
         </Card>
       )}
@@ -182,29 +182,29 @@ const ScanPage: React.FC = () => {
                 children: (
                   <Card className="scan-card">
                     <Form form={form} layout="vertical" onFinish={handleGitHubScan}>
-                      <Form.Item name="repo_url" label="Repository URL" rules={[{ required: true, message: 'Please enter repository URL' }]}>
+                      <Form.Item name="repo_url" label="仓库 URL" rules={[{ required: true, message: '请输入仓库 URL' }]}>
                         <Input placeholder="https://github.com/GoogleCloudPlatform/microservices-demo" size="large" />
                       </Form.Item>
                       <div className="form-row">
-                        <Form.Item name="branch" label="Branch" initialValue="main" className="form-item-half">
+                        <Form.Item name="branch" label="分支" initialValue="main" className="form-item-half">
                           <Input placeholder="main" />
                         </Form.Item>
-                        <Form.Item name="scan_type" label="Scan Type" initialValue="architecture" className="form-item-half">
+                        <Form.Item name="scan_type" label="扫描类型" initialValue="architecture" className="form-item-half">
                           <Select>
-                            <Option value="architecture">Architecture</Option>
-                            <Option value="dependencies">Dependencies</Option>
-                            <Option value="full">Full Scan</Option>
+                            <Option value="architecture">架构扫描</Option>
+                            <Option value="dependencies">依赖扫描</Option>
+                            <Option value="full">完整扫描</Option>
                           </Select>
                         </Form.Item>
                       </div>
                       <Form.Item>
                         <Button type="primary" htmlType="submit" loading={loading} icon={<ScanOutlined />}>
-                          Start Scan
+                          开始扫描
                         </Button>
                       </Form.Item>
                     </Form>
 
-                    <Divider>Quick Templates</Divider>
+                    <Divider>快速模板</Divider>
                     <div className="quick-templates">
                       {quickTemplates.map(t => (
                         <div key={t.name} className="template-card" onClick={() => form.setFieldsValue({ repo_url: t.url })}>
@@ -221,21 +221,21 @@ const ScanPage: React.FC = () => {
               },
               {
                 key: 'manual',
-                label: <span><PlusOutlined /> Manual</span>,
+                label: <span><PlusOutlined /> 手动添加</span>,
                 children: (
                   <Card className="scan-card">
                     <Form form={manualForm} layout="vertical" onFinish={handleManualAdd}>
-                      <Form.Item name="nodes" label="Nodes (JSON Array)" rules={[{ required: true }]}>
+                      <Form.Item name="nodes" label="节点 (JSON 数组)" rules={[{ required: true }]}>
                         <TextArea rows={8} placeholder={sampleNodes} className="code-input" />
                       </Form.Item>
-                      <Form.Item name="edges" label="Edges (JSON Array, optional)">
+                      <Form.Item name="edges" label="边 (JSON 数组，可选)">
                         <TextArea rows={4} placeholder={sampleEdges} className="code-input" />
                       </Form.Item>
                       <Form.Item>
                         <Space>
-                          <Button type="primary" htmlType="submit" loading={loading}>Add Nodes</Button>
+                          <Button type="primary" htmlType="submit" loading={loading}>添加节点</Button>
                           <Button onClick={() => manualForm.setFieldsValue({ nodes: sampleNodes, edges: sampleEdges })}>
-                            Load Sample
+                            加载示例
                           </Button>
                         </Space>
                       </Form.Item>
@@ -248,7 +248,7 @@ const ScanPage: React.FC = () => {
         </div>
 
         <div className="scan-sidebar">
-          <Card className="info-card" title="Node Types" size="small">
+          <Card className="info-card" title="节点类型" size="small">
             <div className="node-type-list">
               {nodeTypes.map(t => (
                 <div key={t.name} className="node-type-item">
@@ -259,10 +259,10 @@ const ScanPage: React.FC = () => {
             </div>
           </Card>
 
-          <Card className="info-card" title="Actions" size="small">
+          <Card className="info-card" title="操作" size="small">
             <Space direction="vertical" style={{ width: '100%' }}>
-              <Button icon={<ClearOutlined />} danger onClick={handleClear} block>Clear Topology</Button>
-              <Button type="primary" onClick={handleViewTopology} block>View Topology</Button>
+              <Button icon={<ClearOutlined />} danger onClick={handleClear} block>清除拓扑</Button>
+              <Button type="primary" onClick={handleViewTopology} block>查看拓扑</Button>
             </Space>
           </Card>
 
@@ -301,10 +301,10 @@ const ScanPage: React.FC = () => {
               <Result
                 status={scanResult.status === 'success' ? 'success' : 'error'}
                 title={scanResult.message}
-                subTitle={<span>{scanResult.nodes_added} nodes, {scanResult.edges_added} edges</span>}
+                subTitle={<span>{scanResult.nodes_added} 个节点, {scanResult.edges_added} 条边</span>}
                 extra={[
                   <Button type="primary" key="view" onClick={handleViewTopology}>
-                    View Topology
+                    查看拓扑
                   </Button>,
                 ]}
               />

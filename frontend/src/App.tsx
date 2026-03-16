@@ -28,12 +28,12 @@ const App: React.FC = () => {
   };
 
   const menuItems = [
-    { key: '1', icon: <HomeOutlined />, label: 'Home' },
-    { key: '2', icon: <ApartmentOutlined />, label: 'Topology' },
-    { key: '3', icon: <MessageOutlined />, label: 'AI Chat' },
-    { key: '4', icon: <ScanOutlined />, label: 'Scan' },
-    { key: '5', icon: <FolderOutlined />, label: 'Projects' },
-    { key: '6', icon: <FileSearchOutlined />, label: 'Review' },
+    { key: '1', icon: <HomeOutlined />, label: '首页' },
+    { key: '2', icon: <ApartmentOutlined />, label: '拓扑图' },
+    { key: '3', icon: <MessageOutlined />, label: 'AI 对话' },
+    { key: '4', icon: <ScanOutlined />, label: '项目扫描' },
+    { key: '5', icon: <FolderOutlined />, label: '项目管理' },
+    { key: '6', icon: <FileSearchOutlined />, label: '架构评审' },
   ];
 
   const handleMenuClick = (key: string) => {
@@ -99,63 +99,63 @@ const HomePage: React.FC = () => (
   <div className="home-page">
     <div className="home-hero">
       <h1>OpenAssetGraph</h1>
-      <p className="home-subtitle">AI-Native Digital Twin for Enterprise Software Architecture</p>
+      <p className="home-subtitle">AI 驱动的企业软件架构数字孪生平台</p>
     </div>
     
     <div className="home-features">
       <div className="feature-card" onClick={() => window.location.href = '/topology'}>
         <div className="feature-icon topology-icon"></div>
-        <h3>Topology Visualization</h3>
-        <p>Interactive graph visualization of your enterprise architecture</p>
+        <h3>拓扑可视化</h3>
+        <p>交互式企业架构图可视化</p>
       </div>
       
       <div className="feature-card" onClick={() => window.location.href = '/chat'}>
         <div className="feature-icon chat-icon"></div>
-        <h3>AI Chat</h3>
-        <p>Ask questions about your architecture in natural language</p>
+        <h3>AI 对话</h3>
+        <p>用自然语言询问架构问题</p>
       </div>
       
       <div className="feature-card" onClick={() => window.location.href = '/scan'}>
         <div className="feature-icon scan-icon"></div>
-        <h3>Project Scanner</h3>
-        <p>Import architecture from GitHub repositories</p>
+        <h3>项目扫描</h3>
+        <p>从 GitHub 仓库导入架构</p>
       </div>
       
       <div className="feature-card" onClick={() => window.location.href = '/projects'}>
         <div className="feature-icon projects-icon"></div>
-        <h3>Projects</h3>
-        <p>Manage your scanned project architecture assets</p>
+        <h3>项目管理</h3>
+        <p>管理扫描的项目架构资产</p>
       </div>
       
       <div className="feature-card" onClick={() => window.location.href = '/review'}>
         <div className="feature-icon review-icon"></div>
-        <h3>Architecture Review</h3>
-        <p>AI-assisted review of architectural proposals</p>
+        <h3>架构评审</h3>
+        <p>AI 辅助架构方案评审</p>
       </div>
     </div>
 
     <div className="home-steps">
-      <h2>Quick Start</h2>
+      <h2>快速开始</h2>
       <div className="steps-list">
         <div className="step-item">
           <div className="step-number">1</div>
           <div className="step-content">
-            <h4>Scan a Project</h4>
-            <p>Import architecture from GitHub or add nodes manually</p>
+            <h4>扫描项目</h4>
+            <p>从 GitHub 导入架构或手动添加节点</p>
           </div>
         </div>
         <div className="step-item">
           <div className="step-number">2</div>
           <div className="step-content">
-            <h4>Explore Topology</h4>
-            <p>View and interact with your architecture graph</p>
+            <h4>探索拓扑</h4>
+            <p>查看和交互架构图</p>
           </div>
         </div>
         <div className="step-item">
           <div className="step-number">3</div>
           <div className="step-content">
-            <h4>Ask AI</h4>
-            <p>Get insights about your architecture using natural language</p>
+            <h4>询问 AI</h4>
+            <p>用自然语言获取架构洞察</p>
           </div>
         </div>
       </div>
@@ -166,44 +166,44 @@ const HomePage: React.FC = () => (
 const ReviewPage: React.FC = () => (
   <div className="review-page">
     <div className="review-header">
-      <h2>Architecture Review</h2>
-      <p>AI-assisted review and analysis of architectural proposals</p>
+      <h2>架构评审</h2>
+      <p>AI 辅助的架构方案评审与分析</p>
     </div>
     
     <div className="review-content">
       <div className="review-card">
-        <h3>Review Types</h3>
+        <h3>评审类型</h3>
         <div className="review-types">
           <div className="review-type">
             <div className="review-type-icon security"></div>
-            <h4>Security Review</h4>
-            <p>Analyze security risks and vulnerabilities</p>
+            <h4>安全评审</h4>
+            <p>分析安全风险和漏洞</p>
           </div>
           <div className="review-type">
             <div className="review-type-icon performance"></div>
-            <h4>Performance Review</h4>
-            <p>Identify performance bottlenecks</p>
+            <h4>性能评审</h4>
+            <p>识别性能瓶颈</p>
           </div>
           <div className="review-type">
             <div className="review-type-icon cost"></div>
-            <h4>Cost Optimization</h4>
-            <p>Find cost-saving opportunities</p>
+            <h4>成本优化</h4>
+            <p>发现成本节约机会</p>
           </div>
           <div className="review-type">
             <div className="review-type-icon compliance"></div>
-            <h4>Compliance Check</h4>
-            <p>Verify compliance requirements</p>
+            <h4>合规检查</h4>
+            <p>验证合规要求</p>
           </div>
         </div>
       </div>
       
       <div className="review-card">
-        <h3>Getting Started</h3>
-        <p>Configure your OpenAI API key in the backend settings to enable AI-powered architecture reviews.</p>
+        <h3>开始使用</h3>
+        <p>在后端设置中配置 OpenAI API Key 以启用 AI 驱动的架构评审功能。</p>
         <div className="review-steps">
-          <p>1. Set <code>OPENAI_API_KEY</code> in your environment</p>
-          <p>2. Import your architecture using the Scan page</p>
-          <p>3. Select a review type and start the analysis</p>
+          <p>1. 在环境中设置 <code>OPENAI_API_KEY</code></p>
+          <p>2. 使用扫描页面导入架构</p>
+          <p>3. 选择评审类型并开始分析</p>
         </div>
       </div>
     </div>

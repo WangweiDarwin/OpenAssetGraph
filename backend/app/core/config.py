@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     
     redis_url: str = "redis://localhost:6379/0"
     
+    github_token: str = ""
+    
     openai_api_key: str = ""
     openai_model: str = "gpt-4-turbo-preview"
     
@@ -41,6 +43,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = False
+        extra = "ignore"
 
 
 settings = Settings()

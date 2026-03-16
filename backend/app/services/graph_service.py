@@ -86,9 +86,16 @@ class Neo4jService:
         """Connect to Neo4j database with retry mechanism"""
         logger.info(f"Attempting to connect to Neo4j at {self.uri}")
         try:
+            if self.user and self.password:
+                auth = (self.user, self.password)
+                logger.info(f"Connecting with auth: user={self.user}")
+            else:
+                auth = None
+                logger.info("Connecting without auth (auth disabled)")
+            
             self.driver = AsyncGraphDatabase.driver(
                 self.uri,
-                auth=(self.user, self.password)
+                auth=auth
             )
             async with self.driver.session() as session:
                 await session.run("RETURN 1")
@@ -657,6 +664,30 @@ class Neo4jService:
             return True
         except Exception as e:
             self._log_error("clear_all_data", e)
+            return False
+    
+    async def clear_project_data(self, project_name: str) -> bool:
+        """Clear all data for a specific project"""
+        if not self.driver:
+            raise RuntimeError("Not connected to Neo4j")
+        
+        self._log_operation("clear_project_data", {"project": project_name})
+        
+        query = """
+        MATCH (n {project: $project_name})
+        DETACH DELETE n
+        RETURN count(n) as deleted
+        """
+        
+        try:
+            async with self.driver.session() as session:
+                result = await session.run(query, project_name=project_name)
+                record = await result.single()
+                deleted = record["deleted"] if record else 0
+                logger.info(f"Cleared {deleted} nodes for project: {project_name}")
+                return True
+        except Exception as e:
+            self._log_error("clear_project_data", e, {"project": project_name})
             return False
     
     @with_retry(max_retries=3, base_delay=1.0)

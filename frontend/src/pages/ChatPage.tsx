@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Input, Button, Space, Spin, Empty, Tag, Avatar, Tooltip, Alert, message } from 'antd';
+import { Input, Button, Tag, Avatar, Alert } from 'antd';
 import { SendOutlined, RobotOutlined, UserOutlined, ClearOutlined, LoadingOutlined, ThunderboltOutlined, ProjectOutlined } from '@ant-design/icons';
 import './ChatPage.css';
 
@@ -253,10 +253,10 @@ const ChatPage: React.FC = () => {
   const formatTime = (date: Date) => date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   const quickQuestions = [
-    { icon: '🔍', text: 'Show all databases' },
-    { icon: '🔗', text: 'Find circular dependencies' },
-    { icon: '📊', text: 'Analyze architecture risks' },
-    { icon: '⚡', text: 'What services call User API?' },
+    { icon: '🔍', text: '显示所有数据库' },
+    { icon: '🔗', text: '查找循环依赖' },
+    { icon: '📊', text: '分析架构风险' },
+    { icon: '⚡', text: '哪些服务调用了用户 API？' },
   ];
 
   return (
@@ -265,11 +265,11 @@ const ChatPage: React.FC = () => {
         <div className="chat-title">
           <RobotOutlined className="chat-icon" />
           <div>
-            <h2>AI Architecture Assistant</h2>
-            <p>Ask questions about your topology</p>
+            <h2>AI 架构助手</h2>
+            <p>询问关于架构拓扑的问题</p>
           </div>
         </div>
-        <Button icon={<ClearOutlined />} onClick={clearChat}>Clear</Button>
+        <Button icon={<ClearOutlined />} onClick={clearChat}>清空</Button>
       </div>
 
       {errorAlert.visible && (

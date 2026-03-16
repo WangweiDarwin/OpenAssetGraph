@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Spin, message, Select, Button, Space, Input, Tag, Empty, Tooltip, Drawer, Divider } from 'antd';
-import { ReloadOutlined, SearchOutlined, ZoomInOutlined, ZoomOutOutlined, FullscreenOutlined, CloseOutlined, ClockCircleOutlined } from '@ant-design/icons';
+import { Spin, message, Select, Button, Space, Input, Tag, Empty, Drawer } from 'antd';
+import { ReloadOutlined, SearchOutlined, CloseOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import { useSearchParams } from 'react-router-dom';
 import TopologyGraph from '../components/TopologyGraph';
-import { topologyApi, TopologyNode, TopologyEdge, TopologyStats, api } from '../services/api';
+import { topologyApi, TopologyNode, TopologyEdge, TopologyStats } from '../services/api';
 import './TopologyPage.css';
 
 const { Option } = Select;
@@ -73,7 +73,7 @@ const loadProjects = useCallback(async () => {
       if (projectToLoad && projectToLoad !== 'default') {
         await topologyApi.switchProject(projectToLoad);
       }
-      const data = await topologyApi.getTopology(undefined, 200);
+      const data = await topologyApi.getTopology(undefined, 1000);
       setNodes(data.nodes);
       setEdges(data.edges);
     } catch (error: any) {
@@ -120,7 +120,7 @@ const loadProjects = useCallback(async () => {
     try {
       await topologyApi.switchProject(projectId);
       setCurrentProject(projectId);
-      const data = await topologyApi.getTopology(undefined, 200);
+      const data = await topologyApi.getTopology(undefined, 1000);
       setNodes(data.nodes);
       setEdges(data.edges);
       const statsData = await topologyApi.getStats();
@@ -202,7 +202,7 @@ const loadProjects = useCallback(async () => {
     return (
       <div className="loading-container">
         <Spin size="large" />
-        <p>Loading topology...</p>
+        <p>加载拓扑数据...</p>
       </div>
     );
   }
@@ -213,7 +213,7 @@ const loadProjects = useCallback(async () => {
         <div className="toolbar-left">
           <Space.Compact className="search-box">
             <Input
-              placeholder="Search nodes..."
+              placeholder="搜索节点..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               onPressEnter={handleSearch}
@@ -221,7 +221,7 @@ const loadProjects = useCallback(async () => {
               allowClear
             />
             <Button type="primary" onClick={handleSearch} loading={searchLoading}>
-              Search
+              搜索
             </Button>
           </Space.Compact>
         </div>
@@ -229,17 +229,17 @@ const loadProjects = useCallback(async () => {
         <div className="toolbar-center">
           <div className="stats-mini">
             <span className="stat-item">
-              <span className="stat-label">Nodes</span>
+              <span className="stat-label">节点</span>
               <span className="stat-value">{stats?.total_nodes || 0}</span>
             </span>
             <span className="stat-divider">|</span>
             <span className="stat-item">
-              <span className="stat-label">Edges</span>
+              <span className="stat-label">边</span>
               <span className="stat-value">{stats?.total_edges || 0}</span>
             </span>
             <span className="stat-divider">|</span>
             <span className="stat-item">
-              <span className="stat-label">Types</span>
+              <span className="stat-label">类型</span>
               <span className="stat-value">{Object.keys(nodeTypeCount).length}</span>
             </span>
           </div>
@@ -259,23 +259,23 @@ const loadProjects = useCallback(async () => {
             onChange={handleProjectChange}
             style={{ width: 180 }}
             size="small"
-            placeholder="Select project"
+            placeholder="选择项目"
           >
             {recentProjects.length > 0 && (
-              <Select.OptGroup label={<span><ClockCircleOutlined /> Recent</span>}>
+              <Select.OptGroup label={<span><ClockCircleOutlined /> 最近访问</span>}>
                 {recentProjects.map(p => (
                   <Option key={p.id} value={p.id}>{p.name}</Option>
                 ))}
               </Select.OptGroup>
             )}
-            <Select.OptGroup label="All Projects">
+            <Select.OptGroup label="所有项目">
               {projects.filter(p => !recentProjects.find(r => r.id === p.id)).map(p => (
                 <Option key={p.id} value={p.id}>{p.name}</Option>
               ))}
             </Select.OptGroup>
           </Select>
           <Button icon={<ReloadOutlined />} onClick={handleRefresh} size="small">
-            Refresh
+            刷新
           </Button>
         </div>
       </div>
@@ -286,16 +286,16 @@ const loadProjects = useCallback(async () => {
             <Empty 
               description={
                 <div>
-                  <p>Connection Error: {connectionError}</p>
-                  <p>Please check if the backend service is running on port 8000</p>
-                  <Button type="primary" onClick={handleRefresh}>Retry</Button>
+                  <p>连接错误: {connectionError}</p>
+                  <p>请检查后端服务是否在 8000 端口运行</p>
+                  <Button type="primary" onClick={handleRefresh}>重试</Button>
                 </div>
               } 
             />
           </div>
         ) : nodes.length === 0 ? (
           <div className="empty-topology">
-            <Empty description="No topology data. Scan a project to get started." />
+            <Empty description="暂无拓扑数据。扫描项目以开始。" />
           </div>
         ) : (
           <TopologyGraph
@@ -329,7 +329,7 @@ const loadProjects = useCallback(async () => {
           <div className="node-details">
             <div className="node-id">ID: {selectedNode.id}</div>
             <div className="properties-section">
-              <h4>Properties</h4>
+              <h4>属性</h4>
               {selectedNode.properties && Object.keys(selectedNode.properties).length > 0 ? (
                 <div className="property-list">
                   {Object.entries(selectedNode.properties).map(([key, value]) => (
@@ -340,7 +340,7 @@ const loadProjects = useCallback(async () => {
                   ))}
                 </div>
               ) : (
-                <Empty description="No properties" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                <Empty description="暂无属性" image={Empty.PRESENTED_IMAGE_SIMPLE} />
               )}
             </div>
           </div>

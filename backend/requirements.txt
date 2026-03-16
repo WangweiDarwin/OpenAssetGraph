@@ -9,10 +9,18 @@ psycopg2-binary==2.9.9
 redis==5.0.1
 asyncpg==0.29.0
 
+# GitHub API
+PyGithub==2.1.1
+aiohttp==3.9.1
+
 # Code Parsing
 tree-sitter==0.21.0
 tree-sitter-java==0.21.0
 tree-sitter-python==0.21.0
+
+# File Parsing
+pyyaml==6.0.1
+toml==0.10.2
 
 # LLM
 langchain==0.1.0

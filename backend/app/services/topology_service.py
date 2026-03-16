@@ -7,13 +7,16 @@ from ..models.graph import GraphNode, GraphRelationship
 class TopologyService:
     """Service for querying topology data"""
     
+    MAX_NODES = 500
+    MAX_RELATIONSHIPS = 500
+    
     def __init__(self, neo4j_service: Neo4jService):
         self.neo4j_service = neo4j_service
     
     async def get_full_topology(
         self,
         node_types: Optional[list[str]] = None,
-        limit: int = 100
+        limit: int = 500
     ) -> dict:
         """Get full topology data"""
         if not self.neo4j_service.driver:
@@ -22,10 +25,12 @@ class TopologyService:
         nodes = []
         relationships = []
         
+        effective_limit = min(limit, self.MAX_NODES)
+        
         async with self.neo4j_service.driver.session() as session:
-            node_query = "MATCH (n) RETURN n"
+            node_query = f"MATCH (n) RETURN n LIMIT {effective_limit}"
             if node_types:
-                node_query = f"MATCH (n) WHERE n.type IN $types RETURN n"
+                node_query = f"MATCH (n) WHERE n.type IN $types RETURN n LIMIT {effective_limit}"
                 result = await session.run(node_query, types=node_types)
             else:
                 result = await session.run(node_query)

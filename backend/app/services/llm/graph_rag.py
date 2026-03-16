@@ -1,5 +1,6 @@
 """Graph RAG service for context-aware LLM responses"""
 import json
+import logging
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
@@ -7,6 +8,8 @@ from ..graph_service import Neo4jService
 from .base import ChatContext, LLMConfig, LLMResponse, LLMService, Message, MessageRole
 from .llm_factory import LLMFactory, LLMProvider
 from .prompt_manager import PromptManager
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -20,6 +23,10 @@ class GraphContext:
 
 class GraphRAGService:
     """Graph RAG service combining graph queries with LLM"""
+    
+    MAX_NODES = 1000
+    MAX_RELATIONSHIPS = 1000
+    MAX_CONTEXT_CHARS = 100000
     
     def __init__(
         self,
@@ -40,10 +47,13 @@ class GraphRAGService:
         self,
         query: str,
         projects: list[str] | None = None,
-        max_nodes: int = 50,
+        max_nodes: int = None,
         max_depth: int = 2
     ) -> GraphContext:
         """Extract relevant context from the graph based on query"""
+        if max_nodes is None:
+            max_nodes = self.MAX_NODES
+            
         context = GraphContext()
         
         try:
@@ -54,9 +64,14 @@ class GraphRAGService:
             nodes = []
             if keywords:
                 nodes = await self._search_nodes_by_keywords(keywords, max_nodes, projects)
+                logger.info(f"Keyword search found {len(nodes)} nodes")
             
-            if len(nodes) < 5:
+            total_count = await self._get_total_node_count(projects)
+            logger.info(f"Total nodes in database: {total_count}")
+            
+            if len(nodes) < total_count * 0.5:
                 nodes = await self._get_all_nodes(max_nodes, projects)
+                logger.info(f"Fallback to get_all_nodes: {len(nodes)} nodes (total: {total_count})")
             
             context.nodes = nodes
             
@@ -64,8 +79,11 @@ class GraphRAGService:
                 node_ids = [n["id"] for n in nodes]
                 relationships = await self._get_relationships_for_nodes(node_ids, projects)
                 context.relationships = relationships
+                logger.info(f"Found {len(relationships)} relationships")
             
             context.subgraph_summary = self._generate_summary(context, projects)
+            
+            logger.info(f"Graph context extracted: {len(context.nodes)} nodes, {len(context.relationships)} relationships")
             
         finally:
             await self.neo4j_service.close()
@@ -74,15 +92,18 @@ class GraphRAGService:
     
     async def _get_all_nodes(
         self,
-        limit: int = 200,
+        limit: int = None,
         projects: list[str] | None = None
     ) -> list[dict[str, Any]]:
         """Get all nodes from the graph"""
+        if limit is None:
+            limit = self.MAX_NODES
+            
         if projects:
             query = """
             MATCH (n)
             WHERE n.project IN $projects
-            RETURN n.id as id, n.label as label, n.type as type, n.properties as properties
+            RETURN n.id as id, n.label as label, n.type as type, n.properties as properties, n.project as project
             LIMIT $limit
             """
             result = await self.neo4j_service.execute_query(
@@ -92,11 +113,21 @@ class GraphRAGService:
         else:
             query = """
             MATCH (n)
-            RETURN n.id as id, n.label as label, n.type as type, n.properties as properties
+            RETURN n.id as id, n.label as label, n.type as type, n.properties as properties, n.project as project
             LIMIT $limit
             """
             result = await self.neo4j_service.execute_query(query, {"limit": limit})
         return [dict(record) for record in result]
+    
+    async def _get_total_node_count(self, projects: list[str] | None = None) -> int:
+        """Get total count of nodes in the database"""
+        if projects:
+            query = "MATCH (n) WHERE n.project IN $projects RETURN count(n) as count"
+            result = await self.neo4j_service.execute_query(query, {"projects": projects})
+        else:
+            query = "MATCH (n) RETURN count(n) as count"
+            result = await self.neo4j_service.execute_query(query, {})
+        return result[0]["count"] if result else 0
     
     def _extract_keywords(self, query: str) -> list[str]:
         """Extract keywords from query for graph search"""
@@ -148,7 +179,7 @@ class GraphRAGService:
         YIELD node, score
         WHERE 1=1{project_filter}
         RETURN node.id as id, node.label as label, node.type as type, 
-               node.properties as properties, score
+               node.properties as properties, node.project as project, score
         ORDER BY score DESC
         LIMIT $limit
         """
@@ -159,7 +190,8 @@ class GraphRAGService:
         try:
             result = await self.neo4j_service.execute_query(query, params)
             return [dict(record) for record in result]
-        except Exception:
+        except Exception as e:
+            logger.warning(f"Fulltext search failed: {e}, using fallback")
             fallback_params: dict[str, Any] = {"keywords": keywords, "limit": limit}
             fallback_project_filter = ""
             
@@ -172,7 +204,7 @@ class GraphRAGService:
             WHERE any(keyword IN $keywords WHERE 
                 toLower(n.label) CONTAINS toLower(keyword) OR
                 toLower(n.id) CONTAINS toLower(keyword)){fallback_project_filter}
-            RETURN n.id as id, n.label as label, n.type as type, n.properties as properties
+            RETURN n.id as id, n.label as label, n.type as type, n.properties as properties, n.project as project
             LIMIT $limit
             """
             result = await self.neo4j_service.execute_query(query, fallback_params)
@@ -191,10 +223,11 @@ class GraphRAGService:
                   AND source.project IN $projects AND target.project IN $projects
             RETURN source.id as source, target.id as target,
                    type(r) as type, properties(r) as properties
+            LIMIT $limit
             """
             result = await self.neo4j_service.execute_query(
                 query,
-                {"node_ids": node_ids, "projects": projects}
+                {"node_ids": node_ids, "projects": projects, "limit": self.MAX_RELATIONSHIPS}
             )
         else:
             query = """
@@ -202,10 +235,11 @@ class GraphRAGService:
             WHERE source.id IN $node_ids AND target.id IN $node_ids
             RETURN source.id as source, target.id as target,
                    type(r) as type, properties(r) as properties
+            LIMIT $limit
             """
             result = await self.neo4j_service.execute_query(
                 query,
-                {"node_ids": node_ids}
+                {"node_ids": node_ids, "limit": self.MAX_RELATIONSHIPS}
             )
         return [dict(record) for record in result]
     
@@ -227,7 +261,7 @@ class GraphRAGService:
             
             if node_type not in type_examples:
                 type_examples[node_type] = []
-            if len(type_examples[node_type]) < 5:
+            if len(type_examples[node_type]) < 10:
                 label = node.get("label", node.get("id", "unknown"))
                 type_examples[node_type].append(label)
         
@@ -239,7 +273,7 @@ class GraphRAGService:
         
         summary_parts.append("节点类型分布：")
         for node_type, count in sorted(type_counts.items(), key=lambda x: -x[1]):
-            examples = type_examples.get(node_type, [])[:3]
+            examples = type_examples.get(node_type, [])[:5]
             examples_str = ", ".join(examples) if examples else ""
             summary_parts.append(f"  - {node_type}: {count} 个 ({examples_str})")
         
@@ -268,17 +302,19 @@ class GraphRAGService:
         
         messages = []
         
+        subgraph_data = json.dumps({
+            "nodes": graph_context.nodes,
+            "relationships": graph_context.relationships,
+            "summary": graph_context.subgraph_summary
+        }, indent=2, default=str, ensure_ascii=False)
+        
         system_prompt = self.prompt_manager.render(
             "chat_context",
             system_prompt=self.prompt_manager.render("system_base"),
             node_count=len(graph_context.nodes),
             edge_count=len(graph_context.relationships),
             node_types=", ".join(set(n.get("type", "Unknown") for n in graph_context.nodes)),
-            subgraph_data=json.dumps({
-                "nodes": graph_context.nodes[:20],
-                "relationships": graph_context.relationships[:20],
-                "summary": graph_context.subgraph_summary
-            }, indent=2, default=str),
+            subgraph_data=subgraph_data[:self.MAX_CONTEXT_CHARS],
             conversation_history=self._format_history(conversation_history or [])
         )
         messages.append(Message(role=MessageRole.SYSTEM, content=system_prompt))
@@ -307,17 +343,19 @@ class GraphRAGService:
         
         messages = []
         
+        subgraph_data = json.dumps({
+            "nodes": graph_context.nodes,
+            "relationships": graph_context.relationships,
+            "summary": graph_context.subgraph_summary
+        }, indent=2, default=str, ensure_ascii=False)
+        
         system_prompt = self.prompt_manager.render(
             "chat_context",
             system_prompt=self.prompt_manager.render("system_base"),
             node_count=len(graph_context.nodes),
             edge_count=len(graph_context.relationships),
             node_types=", ".join(set(n.get("type", "Unknown") for n in graph_context.nodes)),
-            subgraph_data=json.dumps({
-                "nodes": graph_context.nodes[:20],
-                "relationships": graph_context.relationships[:20],
-                "summary": graph_context.subgraph_summary
-            }, indent=2, default=str),
+            subgraph_data=subgraph_data[:self.MAX_CONTEXT_CHARS],
             conversation_history=self._format_history(conversation_history or [])
         )
         messages.append(Message(role=MessageRole.SYSTEM, content=system_prompt))
@@ -358,7 +396,7 @@ class GraphRAGService:
         finally:
             await self.neo4j_service.close()
         
-        topology_str = json.dumps(topology, indent=2, default=str)[:8000]
+        topology_str = json.dumps(topology, indent=2, default=str, ensure_ascii=False)[:self.MAX_CONTEXT_CHARS]
         
         template_name = {
             "general": "topology_analysis",
@@ -397,7 +435,7 @@ class GraphRAGService:
         finally:
             await self.neo4j_service.close()
         
-        topology_str = json.dumps(topology, indent=2, default=str)[:8000]
+        topology_str = json.dumps(topology, indent=2, default=str, ensure_ascii=False)[:self.MAX_CONTEXT_CHARS]
         
         prompt = self.prompt_manager.render(
             "integration_suggestion",
@@ -425,7 +463,7 @@ class GraphRAGService:
         finally:
             await self.neo4j_service.close()
         
-        assets_str = json.dumps(nodes[:50], indent=2, default=str)[:6000]
+        assets_str = json.dumps(nodes, indent=2, default=str, ensure_ascii=False)[:self.MAX_CONTEXT_CHARS]
         
         prompt = self.prompt_manager.render(
             "asset_reuse",
@@ -442,11 +480,15 @@ class GraphRAGService:
     
     async def _get_full_topology(self) -> dict[str, Any]:
         """Get full topology from Neo4j"""
-        nodes_query = "MATCH (n) RETURN n.id as id, n.label as label, n.type as type, n.properties as properties LIMIT 200"
-        edges_query = """
+        nodes_query = f"""
+        MATCH (n)
+        RETURN n.id as id, n.label as label, n.type as type, n.properties as properties, n.project as project
+        LIMIT {self.MAX_NODES}
+        """
+        edges_query = f"""
         MATCH (source)-[r]->(target)
         RETURN source.id as source, target.id as target, type(r) as type, properties(r) as properties
-        LIMIT 500
+        LIMIT {self.MAX_RELATIONSHIPS}
         """
         
         nodes = await self.neo4j_service.execute_query(nodes_query, {})
